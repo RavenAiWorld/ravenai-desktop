@@ -1,0 +1,120 @@
+/*
+ * Raven design tokens — developer-platform light theme with a matching dark theme.
+ * Semantic colors are RGB channels so Tailwind can apply opacity (bg-rv-surface/80).
+ * New components should prefer these semantic tokens (bg-rv-surface, text-rv-fg-3,
+ * border-rv-line); legacy markup keeps using the retuned gray/dark/primary scales.
+ */
+@font-face {
+  font-family: 'Geist';
+  src: url('../../assets/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('../../assets/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  accent-color: rgb(var(--rv-accent));
+
+  /* Surfaces */
+  --rv-canvas: 255 255 255;
+  --rv-subtle: 250 250 250;
+  --rv-surface: 255 255 255;
+  --rv-raised: 255 255 255;
+  --rv-muted: 244 244 245;
+  --rv-hover: 244 244 245;
+  --rv-thead: 250 250 250;
+
+  /* Lines */
+  --rv-line: 228 228 231;
+  --rv-line-soft: 239 239 241;
+  --rv-line-strong: 212 212 216;
+
+  /* Text */
+  --rv-fg: 9 9 11;
+  --rv-fg-2: 63 63 70;
+  --rv-fg-3: 113 113 122;
+  --rv-fg-4: 161 161 170;
+
+  /* Actions: ink is the primary button, accent is links / focus / selection */
+  --rv-ink: 24 24 27;
+  --rv-ink-hover: 49 49 54;
+  --rv-on-ink: 255 255 255;
+  --rv-accent: 62 91 216;
+  --rv-accent-hover: 50 73 184;
+  --rv-accent-fg: 50 73 184;
+  --rv-accent-soft: 238 241 253;
+
+  /* Status */
+  --rv-success: 21 128 61;
+  --rv-success-soft: 236 253 243;
+  --rv-warning: 180 83 9;
+  --rv-warning-soft: 255 247 237;
+  --rv-danger: 220 38 38;
+  --rv-danger-soft: 254 242 242;
+
+  /* Shape and depth */
+  --rv-radius-sm: 4px;
+  --rv-radius: 6px;
+  --rv-radius-lg: 10px;
+  --rv-radius-xl: 14px;
+  --rv-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+  --rv-shadow-pop: 0 10px 28px -8px rgb(0 0 0 / 0.14), 0 2px 6px -2px rgb(0 0 0 / 0.06);
+  --rv-shadow-modal: 0 28px 72px -18px rgb(0 0 0 / 0.30);
+  --rv-ring: 0 0 0 3px rgb(var(--rv-accent) / 0.2);
+
+  /* Layout */
+  --rv-header-h: 56px;
+  --rv-sidebar-w: 240px;
+  --rv-sidebar-w-collapsed: 64px;
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Aligned with the legacy dark ramp: surface = dark-800, line = dark-700, line-strong = dark-600 */
+  --rv-canvas: 9 9 11;
+  --rv-subtle: 15 15 17;
+  --rv-surface: 24 24 27;
+  --rv-raised: 28 28 32;
+  --rv-muted: 31 31 35;
+  --rv-hover: 39 39 42;
+  --rv-thead: 28 28 31;
+
+  --rv-line: 39 39 42;
+  --rv-line-soft: 33 33 37;
+  --rv-line-strong: 63 63 70;
+
+  --rv-fg: 250 250 250;
+  --rv-fg-2: 212 212 216;
+  --rv-fg-3: 161 161 170;
+  --rv-fg-4: 113 113 122;
+
+  --rv-ink: 250 250 250;
+  --rv-ink-hover: 228 228 231;
+  --rv-on-ink: 9 9 11;
+  --rv-accent: 130 153 238;
+  --rv-accent-hover: 160 178 243;
+  --rv-accent-fg: 160 178 243;
+  --rv-accent-soft: 30 36 66;
+
+  --rv-success: 74 222 128;
+  --rv-success-soft: 20 40 29;
+  --rv-warning: 251 191 36;
+  --rv-warning-soft: 45 33 14;
+  --rv-danger: 248 113 113;
+  --rv-danger-soft: 50 21 21;
+
+  --rv-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --rv-shadow-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04);
+  --rv-shadow-modal: 0 28px 80px -16px rgb(0 0 0 / 0.75), 0 0 0 1px rgb(255 255 255 / 0.05);
+  --rv-ring: 0 0 0 3px rgb(var(--rv-accent) / 0.28);
+}

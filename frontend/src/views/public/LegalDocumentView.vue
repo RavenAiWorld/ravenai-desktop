@@ -1,0 +1,237 @@
+<template>
+  <div class="flex min-h-screen flex-col bg-rv-canvas text-rv-fg">
+    <PublicHeader />
+
+    <main class="mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6 lg:py-14">
+      <div v-if="loading" class="flex min-h-[320px] items-center justify-center">
+        <div class="h-6 w-6 animate-spin rounded-full border-2 border-rv-line border-t-rv-fg"></div>
+      </div>
+
+      <section
+        v-else-if="loadError"
+        class="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
+      >
+        <h1 class="text-lg font-semibold">{{ t('legal.loadFailed') }}</h1>
+        <p class="mt-2 text-sm">{{ t('legal.retryLater') }}</p>
+      </section>
+
+      <section
+        v-else-if="!currentDocument"
+        class="rounded-lg border border-gray-200 bg-white p-6 dark:border-dark-700 dark:bg-dark-900"
+      >
+        <div class="flex items-start gap-3">
+          <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-dark-300">
+            <Icon name="document" size="sm" />
+          </span>
+          <div>
+            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('legal.notFound') }}</h1>
+            <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">
+              {{ t('legal.notFoundDescription') }}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <article v-else>
+        <div class="mb-8 border-b border-rv-line pb-6">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-rv-line text-rv-fg-2">
+              <Icon :name="documentIcon" size="md" />
+            </span>
+            <div class="min-w-0">
+              <p class="text-[13px] font-medium text-rv-fg-3">{{ documentTypeLabel }}</p>
+              <h1 class="mt-1.5 break-words text-[26px] font-semibold leading-tight tracking-tight text-rv-fg sm:text-[30px]">
+                {{ currentDocument.title }}
+              </h1>
+              <p v-if="updatedAt" class="mt-3 text-sm text-gray-500 dark:text-dark-400">
+                {{ t('legal.updatedAt', { date: updatedAt }) }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="hasContent"
+          class="legal-document-content"
+          v-html="renderedHtml"
+        ></div>
+        <div
+          v-else
+          class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-14 text-center text-sm text-gray-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400"
+        >
+          {{ t('legal.empty') }}
+        </div>
+      </article>
+    </main>
+    <PublicFooter />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
+import { useI18n } from 'vue-i18n'
+import Icon from '@/components/icons/Icon.vue'
+import PublicHeader from '@/components/layout/PublicHeader.vue'
+import PublicFooter from '@/components/layout/PublicFooter.vue'
+import { getLocale } from '@/i18n'
+import { useAppStore } from '@/stores/app'
+import type { LoginAgreementDocument } from '@/types'
+import zhAdminCompliance from '../../../../docs/legal/admin-compliance.zh.md?raw'
+import enAdminCompliance from '../../../../docs/legal/admin-compliance.en.md?raw'
+
+type LegalDocumentIcon = 'document' | 'shield' | 'globe' | 'cog'
+
+const route = useRoute()
+const { t } = useI18n()
+const appStore = useAppStore()
+const settings = computed(() => appStore.cachedPublicSettings)
+const loading = ref(!settings.value)
+const loadError = ref(false)
+
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+})
+
+const documentId = computed(() => String(route.params.documentId || ''))
+const isAdminComplianceDocument = computed(() => documentId.value === 'admin-compliance')
+const documents = computed(() => settings.value?.login_agreement_documents ?? [])
+const updatedAt = computed(() =>
+  isAdminComplianceDocument.value ? '' : settings.value?.login_agreement_updated_at || ''
+)
+const documentTypeLabel = computed(() =>
+  isAdminComplianceDocument.value ? t('legal.adminCompliance') : t('legal.loginAgreement')
+)
+
+const currentDocument = computed<LoginAgreementDocument | null>(() => {
+  if (isAdminComplianceDocument.value) {
+    return {
+      id: 'admin-compliance',
+      title: t('adminCompliance.title'),
+      content_md: getLocale() === 'zh' ? zhAdminCompliance : enAdminCompliance
+    }
+  }
+  const id = documentId.value
+  if (!id) {
+    return null
+  }
+  return documents.value.find((doc) => doc.id === id) ?? null
+})
+
+const hasContent = computed(() => Boolean(currentDocument.value?.content_md?.trim()))
+
+const renderedHtml = computed(() => {
+  const content = currentDocument.value?.content_md?.trim() || ''
+  if (!content) {
+    return ''
+  }
+  const html = marked.parse(content) as string
+  return DOMPurify.sanitize(html)
+})
+
+const documentIcon = computed<LegalDocumentIcon>(() => {
+  const title = currentDocument.value?.title || ''
+  if (title.includes('政策') || title.includes('隐私')) {
+    return 'shield'
+  }
+  if (title.includes('国家') || title.includes('地区')) {
+    return 'globe'
+  }
+  if (title.includes('特定')) {
+    return 'cog'
+  }
+  return 'document'
+})
+
+onMounted(async () => {
+  loadError.value = false
+  const loadedSettings = await appStore.fetchPublicSettings()
+  if (!loadedSettings) {
+    loadError.value = true
+  }
+  loading.value = false
+})
+</script>
+
+<style scoped>
+.legal-document-content {
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+
+.legal-document-content :deep(h1) {
+  @apply mb-4 mt-10 border-b border-rv-line pb-3 text-2xl font-semibold tracking-tight;
+}
+
+.legal-document-content :deep(h2) {
+  @apply mb-3 mt-8 text-xl font-semibold tracking-tight;
+}
+
+.legal-document-content :deep(h3) {
+  @apply mb-2 mt-6 text-lg font-semibold;
+}
+
+.legal-document-content :deep(h4) {
+  @apply mb-2 mt-5 text-base font-semibold;
+}
+
+.legal-document-content :deep(p) {
+  @apply mb-4 text-[15px] text-rv-fg-2;
+}
+
+.legal-document-content :deep(a) {
+  @apply text-primary-600 underline underline-offset-4 hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200;
+}
+
+.legal-document-content :deep(ul) {
+  @apply mb-4 list-disc pl-6;
+}
+
+.legal-document-content :deep(ol) {
+  @apply mb-4 list-decimal pl-6;
+}
+
+.legal-document-content :deep(li) {
+  @apply mb-1 text-[15px] text-rv-fg-2;
+}
+
+.legal-document-content :deep(blockquote) {
+  @apply my-5 border-l-4 border-gray-300 pl-4 text-gray-600 dark:border-dark-600 dark:text-dark-300;
+}
+
+.legal-document-content :deep(code) {
+  @apply rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm dark:bg-dark-800;
+}
+
+.legal-document-content :deep(pre) {
+  @apply my-5 overflow-x-auto rounded-lg bg-gray-950 p-4 text-gray-100;
+}
+
+.legal-document-content :deep(pre code) {
+  @apply bg-transparent p-0 text-inherit;
+}
+
+.legal-document-content :deep(table) {
+  @apply my-5 block w-full overflow-x-auto border-collapse;
+}
+
+.legal-document-content :deep(th) {
+  @apply border border-gray-300 bg-gray-50 px-3 py-2 text-left font-semibold dark:border-dark-600 dark:bg-dark-800;
+}
+
+.legal-document-content :deep(td) {
+  @apply border border-gray-300 px-3 py-2 dark:border-dark-600;
+}
+
+.legal-document-content :deep(img) {
+  @apply my-5 h-auto max-w-full rounded-lg;
+}
+
+.legal-document-content :deep(hr) {
+  @apply my-7 border-gray-200 dark:border-dark-700;
+}
+</style>

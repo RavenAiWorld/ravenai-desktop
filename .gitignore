@@ -1,0 +1,13 @@
+node_modules/
+frontend/node_modules/
+frontend/dist/
+renderer/
+release/
+build/
+qa-output/
+*.tar
+release-source.zip
+assets/icon.png
+assets/icon.ico
+*.tsbuildinfo
+*.log

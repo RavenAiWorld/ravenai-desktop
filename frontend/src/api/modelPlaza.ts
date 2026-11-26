@@ -1,0 +1,132 @@
+/**
+ * Model Plaza API（公开端点，可匿名访问）
+ * 以分组为中心的模型价目：分组信息 + 模型渠道定价 + LiteLLM 官方参考价。
+ * 带 token 请求时后端会额外返回获授权的专属分组。
+ */
+
+import { apiClient } from './client'
+import type { GroupStatus } from '@/types'
+import type { UserPricingInterval, UserSupportedModelPricing } from './channels'
+
+/** 官方参考价（USD per token，与计费目录同源；字段缺失 = 目录未覆盖）。 */
+export interface PlazaOfficialPricing {
+  input_price: number | null
+  output_price: number | null
+  /** 5m 缓存写入（= LiteLLM cache_creation）。 */
+  cache_write_price: number | null
+  /** 1h 缓存写入（LiteLLM cache_creation_above_1hr），多数模型缺失。 */
+  cache_write_1h_price?: number | null
+  cache_write_12h_price?: number | null
+  cache_read_price: number | null
+  /** 官方长上下文阶梯（多档模型才有），不受分组开关影响。 */
+  intervals?: UserPricingInterval[]
+}
+
+/**
+ * 多档时的计价基准：
+ * - whole_request：整单按所在档单价计价（目录阶梯、渠道区间）；
+ * - marginal：仅超出阈值的部分按该档单价计价（平台旧规则）。
+ */
+export type PlazaLongContextBasis = 'whole_request' | 'marginal'
+
+/** 分时倍率时段：配置时区当天 [start_time, end_time) 内整单实付乘 multiplier。 */
+export interface PlazaTimePricingPeriod {
+  start_time: string
+  end_time: string
+  multiplier: number
+}
+
+/** 计费会生效的分时倍率（仅倍率 ≠ 1 的时段，已按开始时间升序）。 */
+export interface PlazaTimePricing {
+  /** IANA 时区名，如 Asia/Shanghai。 */
+  timezone: string
+  /** true 时时段仅周一至周五生效，周末整天按标准价计费。 */
+  weekdays_only?: boolean
+  periods: PlazaTimePricingPeriod[]
+}
+
+/** 账号池同步的上游模型资料，仅用于展示；字段缺失 = 上游未提供。 */
+export interface PlazaModelInfo {
+  display_name?: string
+  /** 上游原文（通常为英文）。 */
+  description?: string
+  /** 默认上下文窗口（token）。 */
+  context_window?: number
+  /** 可扩展到的最大上下文窗口（token）。 */
+  max_context_window?: number
+  max_output_tokens?: number
+  reasoning?: boolean
+  /** 如 ['text', 'image']。 */
+  input_modalities?: string[]
+}
+
+export interface PlazaRouteStats {
+  updated_at: string
+  stale: boolean
+  group_average: boolean
+  history: Array<'' | 'operational' | 'degraded' | 'failed'>
+  success_rate?: number
+  latency_ms?: number
+  tps?: number
+}
+
+export interface PlazaModel {
+  name: string
+  platform: string
+  /** 实收口径的展示定价：档位可提供绝对单价或相对基础价倍率；均为标准时段价。 */
+  pricing: UserSupportedModelPricing | null
+  official_pricing: PlazaOfficialPricing | null
+  /** 仅多档模型返回。 */
+  long_context_basis?: PlazaLongContextBasis
+  /** 仅配置了分时倍率的模型返回。 */
+  time_pricing?: PlazaTimePricing
+  service_tier?: string
+  pricing_source?: string
+  long_context_note?: 'subscription_flat' | 'subscription_mixed'
+  pricing_note?: 'route_dependent'
+  info?: PlazaModelInfo
+  route_stats?: PlazaRouteStats
+}
+
+export interface ModelPlazaGroup {
+  id: number
+  status?: GroupStatus
+  name: string
+  description: string
+  platform: string
+  /** 'standard' | 'subscription' */
+  subscription_type: string
+  rate_multiplier: number
+  peak_rate_enabled: boolean
+  peak_start: string
+  peak_end: string
+  peak_rate_multiplier: number
+  is_exclusive: boolean
+  /** 生图独立倍率：true 时图片计费模型的实付倍率取 image_rate_multiplier。 */
+  image_rate_independent: boolean
+  image_rate_multiplier: number
+  /** 视频独立倍率开启时，覆盖视频模型的分组倍率。 */
+  video_rate_independent: boolean
+  video_rate_multiplier: number
+  /** 分组是否启用长上下文阶梯计费；false 时实付列只展示最低档，官方阶梯仅供参考。 */
+  long_context_pricing_enabled: boolean
+  models: PlazaModel[]
+}
+
+export interface ModelPlazaResponse {
+  /** 管理员配置的全局价格说明（Markdown）。 */
+  description: string
+  groups: ModelPlazaGroup[]
+}
+
+/** 获取模型广场数据。开关未启用时后端返回 404。 */
+export async function getModelPlaza(options?: { signal?: AbortSignal }): Promise<ModelPlazaResponse> {
+  const { data } = await apiClient.get<ModelPlazaResponse>('/model-plaza', {
+    signal: options?.signal
+  })
+  return data
+}
+
+export const modelPlazaAPI = { getModelPlaza }
+
+export default modelPlazaAPI

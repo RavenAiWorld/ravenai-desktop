@@ -1,0 +1,199 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  Filler,
+  Legend,
+  LineElement,
+  LinearScale,
+  PointElement,
+  Title,
+  Tooltip
+} from 'chart.js'
+import { Line } from 'vue-chartjs'
+import type { OpsErrorTrendPoint } from '@/api/admin/ops'
+import type { ChartState } from '../types'
+import { formatHistoryLabel, sumNumbers } from '../utils/opsFormatters'
+import HelpTooltip from '@/components/common/HelpTooltip.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import { useDarkMode } from '@/composables/useDarkMode'
+import {
+  CHART_FONT_FAMILY,
+  applyChartDefaults,
+  chartAxis,
+  chartChrome,
+  chartTooltip,
+  seriesColor,
+  withAlpha
+} from '@/utils/chartTheme'
+
+ChartJS.register(Title, Tooltip, Legend, LineElement, LinearScale, PointElement, CategoryScale, Filler)
+applyChartDefaults()
+
+interface Props {
+  points: OpsErrorTrendPoint[]
+  loading: boolean
+  timeRange: string
+}
+
+const props = defineProps<Props>()
+const emit = defineEmits<{
+  (e: 'openRequestErrors'): void
+  (e: 'openUpstreamErrors'): void
+}>()
+const { t } = useI18n()
+
+const isDark = useDarkMode()
+
+const totalRequestErrors = computed(() => sumNumbers(props.points.map((p) => p.error_count_sla ?? 0)))
+
+const totalUpstreamErrors = computed(() =>
+  sumNumbers(
+    props.points.map((p) => (p.upstream_error_count_excl_429_529 ?? 0) + (p.upstream_429_count ?? 0) + (p.upstream_529_count ?? 0))
+  )
+)
+
+const totalDisplayed = computed(() =>
+  sumNumbers(props.points.map((p) => (p.error_count_sla ?? 0) + (p.upstream_error_count_excl_429_529 ?? 0) + (p.business_limited_count ?? 0)))
+)
+
+const hasRequestErrors = computed(() => totalRequestErrors.value > 0)
+const hasUpstreamErrors = computed(() => totalUpstreamErrors.value > 0)
+
+const chartData = computed(() => {
+  if (!props.points.length || totalDisplayed.value <= 0) return null
+  const dark = isDark.value
+  const requestColor = seriesColor(0, dark)
+  const upstreamColor = seriesColor(1, dark)
+  return {
+    labels: props.points.map((p) => formatHistoryLabel(p.bucket_start, props.timeRange)),
+    datasets: [
+      {
+        label: t('admin.ops.errorsSla'),
+        data: props.points.map((p) => p.error_count_sla ?? 0),
+        borderColor: requestColor,
+        backgroundColor: withAlpha(requestColor, 0.12),
+        fill: true,
+        tension: 0.35
+      },
+      {
+        label: t('admin.ops.upstreamExcl429529'),
+        data: props.points.map((p) => p.upstream_error_count_excl_429_529 ?? 0),
+        borderColor: upstreamColor,
+        backgroundColor: withAlpha(upstreamColor, 0.1),
+        fill: true,
+        tension: 0.35
+      },
+      {
+        label: t('admin.ops.businessLimited'),
+        data: props.points.map((p) => p.business_limited_count ?? 0),
+        borderColor: seriesColor(8, dark),
+        backgroundColor: 'transparent',
+        borderDash: [6, 6],
+        fill: false,
+        tension: 0.35
+      }
+    ]
+  }
+})
+
+const state = computed<ChartState>(() => {
+  if (chartData.value) return 'ready'
+  if (props.loading) return 'loading'
+  return 'empty'
+})
+
+const options = computed(() => {
+  const dark = isDark.value
+  const chrome = chartChrome(dark)
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { intersect: false, mode: 'index' as const },
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        align: 'end' as const,
+        labels: {
+          color: chrome.text,
+          usePointStyle: true,
+          boxWidth: 7,
+          boxHeight: 7,
+          font: { family: CHART_FONT_FAMILY, size: 11 }
+        }
+      },
+      tooltip: chartTooltip(dark)
+    },
+    scales: {
+      x: chartAxis(dark, {
+        grid: { display: false },
+        ticks: {
+          color: chrome.muted,
+          padding: 8,
+          font: { family: CHART_FONT_FAMILY, size: 11 },
+          maxTicksLimit: 8,
+          maxRotation: 0,
+          autoSkip: true,
+          autoSkipPadding: 18
+        }
+      }),
+      y: chartAxis(dark, {
+        beginAtZero: true,
+        ticks: {
+          color: chrome.muted,
+          padding: 8,
+          font: { family: CHART_FONT_FAMILY, size: 11 },
+          precision: 0
+        }
+      })
+    }
+  }
+})
+</script>
+
+<template>
+  <div class="flex h-full flex-col rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700">
+    <div class="mb-4 flex shrink-0 items-center justify-between">
+      <h3 class="flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
+        <svg class="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"
+          />
+        </svg>
+        {{ t('admin.ops.errorTrend') }}
+        <HelpTooltip :content="t('admin.ops.tooltips.errorTrend')" />
+      </h3>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
+          :disabled="!hasRequestErrors"
+          @click="emit('openRequestErrors')"
+        >
+          {{ t('admin.ops.errorDetails.requestErrors') }}
+        </button>
+        <button
+          type="button"
+          class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-2 py-1 text-[11px] font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-dark-700 dark:bg-dark-900 dark:text-gray-300 dark:hover:bg-dark-800"
+          :disabled="!hasUpstreamErrors"
+          @click="emit('openUpstreamErrors')"
+        >
+          {{ t('admin.ops.errorDetails.upstreamErrors') }}
+        </button>
+      </div>
+    </div>
+
+    <div class="min-h-0 flex-1">
+      <Line v-if="state === 'ready' && chartData" :data="chartData" :options="options" />
+      <div v-else class="flex h-full items-center justify-center">
+        <div v-if="state === 'loading'" class="animate-pulse text-sm text-gray-400">{{ t('common.loading') }}</div>
+        <EmptyState v-else :title="t('common.noData')" :description="t('admin.ops.charts.emptyError')" />
+      </div>
+    </div>
+  </div>
+</template>

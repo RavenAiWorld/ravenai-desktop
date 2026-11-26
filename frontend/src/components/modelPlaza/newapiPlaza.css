@@ -1,0 +1,30 @@
+/*
+ * Copyright (C) 2023-2026 QuantumNous
+ * Adapted from New API 6f23339, web/src/styles/theme.css and pricing components.
+ * Vue/data integration modifications (C) 2026 Raven AI contributors.
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * See frontend/THIRD_PARTY_NOTICES.md and licenses/AGPL-3.0.txt.
+ */
+.newapi-plaza,
+.plaza-filter-overlay,
+[data-plaza-drawer] {
+  /* Raven: plaza colours follow the site design tokens (they switch with .dark). */
+  --plaza-background: rgb(var(--rv-canvas));
+  --plaza-foreground: rgb(var(--rv-fg));
+  --plaza-muted: rgb(var(--rv-muted));
+  --plaza-muted-foreground: rgb(var(--rv-fg-3));
+  --plaza-border: rgb(var(--rv-line));
+  --plaza-primary: rgb(var(--rv-accent));
+  --plaza-radius: 0.75rem;
+  --plaza-radius-md: calc(var(--plaza-radius) * 0.8);
+  --plaza-radius-xl: calc(var(--plaza-radius) * 1.4);
+  color: var(--plaza-foreground);
+  letter-spacing: 0;
+}
+.newapi-plaza :is(button, input, select):focus-visible,
+.plaza-filter-overlay :is(button, input, summary):focus-visible,
+[data-plaza-drawer] :is(button, input, a, summary):focus-visible {
+  outline: 2px solid var(--plaza-primary);
+  outline-offset: 3px;
+}
+.newapi-plaza ::selection { background: color-mix(in oklch, var(--plaza-primary) 25%, transparent); }
