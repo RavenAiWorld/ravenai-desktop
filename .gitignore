@@ -7,7 +7,11 @@ build/
 qa-output/
 *.tar
 release-source.zip
-assets/icon.png
-assets/icon.ico
 *.tsbuildinfo
 *.log
+dist/
+src-tauri/target/
+src-tauri/gen/
+artifacts/
+qa-results/
+test-results/

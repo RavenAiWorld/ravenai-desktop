@@ -1,30 +1,40 @@
 # Ravenai Desktop
 
-Windows client for our Sub2API service at `https://ravenaiworld.org`.
+Independent Windows desktop client built with Tauri 2, Rust and React. It uses the production Ravenai/Sub2API APIs and accounts.
 
 ## Build
 
-Use Node.js 24, npm and pnpm. From this directory:
+Requirements: Node.js 24, Rust stable, Windows MSVC build tools and WebView2.
 
 ```powershell
 npm ci
-pnpm --dir frontend install --frozen-lockfile
 npm run check
 npm test
+cargo test --manifest-path src-tauri/Cargo.toml --lib
 npm run build
-npm run qa
-git archive --format=zip --output=release-source.zip HEAD
+npx playwright test
+powershell -NoProfile -File scripts/source-archive.ps1
 npm run package
 ```
 
-`release/Ravenai-2.0.0-Windows-x64.exe` is the per-user installer. The installer creates a desktop shortcut and Start Menu entry. It does not automatically start the application.
+The installer is written to `src-tauri/target/release/bundle/nsis`. Development starts with `npm start`. The old `desktop/` and `frontend/` directories are historical references and are not packaged or loaded by this client. The pure pricing modules in `client/pricing` retain the production website's pricing rules; `scripts/sync-pricing.mjs` synchronizes those modules only.
 
-For read-only installed verification, run the installed executable with `--verify-install`. The app creates a fresh temporary profile, checks the production connection without signing in, writes a report in that profile and exits without showing a window.
+## Sign In
 
-The application has its own desktop shell, workspace, split-pane key manager, usage inspector and client preferences. It shares the production Sub2API account, API contracts, data and feature switches. Existing authentication, billing and account-security flows are retained inside the desktop workspace. The local renderer is served at the actual site origin for captcha and OAuth compatibility. HTTPS validation remains enabled. No companion service is required.
+The user selects **通过官网登录**. The default browser opens the official website, completes the website's normal authentication and security checks, and shows an explicit authorization page. A short-lived, single-use code returns through an ephemeral loopback listener. Rust exchanges it using S256 PKCE and keeps the resulting session encrypted with Windows DPAPI. Access and refresh tokens never enter React or browser local storage. The client uses the existing refresh rotation and logout APIs.
 
-The Chromium session is memory-only. Persistent application storage is encrypted with Electron safeStorage using Windows protection. Passwords are handled by the existing sign-in form and are not persisted by the desktop bridge. On sign-out the native frontend revokes the refresh session and removes stored credentials.
+Native screens provide account overview, model prices, API key management, usage and error records, billing history, redemption, subscriptions, referrals, and support conversations. Purchase, account security, image studio and model trace open their official website entries on user action. Those website entries retain their own browser login session.
 
-The QA runner creates hidden windows with an independent temporary profile. It first checks the real public production endpoints, then intercepts all HTTPS requests for disposable authenticated workflow fixtures. These test handlers are outside the packaged application. No live user account, third-party sign-in, payment or billable model call is performed by QA.
+## Verification
 
-See `NOTICE.md` and `LICENSE`. Complete corresponding source is distributed with the installation under `resources/source`.
+Playwright runs a new headless browser profile and injects disposable data only from `tests/ui`. It never attaches to an existing browser session. Screenshots and the test report are written to `qa-results` and are not release assets. These tests do not prove live website login success.
+
+The installed executable supports this separate, read-only startup check:
+
+```powershell
+Ravenai.exe --verify-install --verify-report C:\absolute\path\verification.json
+```
+
+This creates a temporary profile, keeps the window hidden, verifies React startup, calls the real production public-settings API and exits. It does not open a browser, sign in, read an existing app session or modify account data. Final live-login acceptance remains a user-driven website authorization.
+
+See `docs/desktop-auth.md` and `LICENSE`. The installer includes the corresponding application source archive under `source`.

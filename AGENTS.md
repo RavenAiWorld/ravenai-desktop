@@ -1,5 +1,9 @@
 # Ravenai Desktop
 
+- Current authorized implementation: Tauri 2 + Rust + React. The user approved the Codex++ technology direction.
+- Authentication is initiated by the user and completed on the production website, with explicit desktop authorization and PKCE-bound one-time code exchange. Never embed or bypass Cloudflare verification.
+- Electron 2.0.0 failed real login acceptance. Its legacy files are reference only and must never be packaged or reinstalled as the accepted client.
+
 - Connect to our production Sub2API at https://ravenaiworld.org and its configured API base.
 - The full native Sub2API account and business workflows are the source of truth. Do not create a reduced demonstration interface or fixture-backed release.
 - Keep a professional desktop login and a consistent application layout, with real error, empty, loading and expired-session states.

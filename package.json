@@ -1,46 +1,37 @@
 {
   "name": "ravenai-desktop",
   "productName": "Ravenai",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "description": "Ravenai desktop client for the production Sub2API service",
   "author": "Ravenai",
   "license": "AGPL-3.0-only",
-  "main": "desktop/main.cjs",
   "scripts": {
-    "check": "node --check desktop/main.cjs && node --check desktop/preload.cjs && npm --prefix frontend run typecheck",
-    "build": "node scripts/build.mjs",
-    "start": "electron .",
-    "package": "npm run build && electron-builder --win nsis --x64",
-    "test": "node --test tests/*.test.cjs",
-    "qa": "node tests/run-qa.mjs"
+    "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
+    "check": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "start": "tauri dev",
+    "package": "tauri build",
+    "test": "vitest run",
+    "tauri": "tauri"
+  },
+  "type": "module",
+  "dependencies": {
+    "@tanstack/react-query": "5.108.4",
+    "@tauri-apps/api": "2.12.5",
+    "lucide-react": "1.81.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
-    "electron": "45.5.0",
-    "electron-builder": "26.18.0",
-    "sharp": "0.34.5"
-  },
-  "build": {
-    "appId": "org.ravenai.desktop",
-    "productName": "Ravenai",
-    "directories": { "output": "release", "buildResources": "assets" },
-    "files": ["desktop/**", "renderer/**", "assets/icon.png", "LICENSE", "NOTICE.md", "package.json"],
-    "asar": true,
-    "npmRebuild": false,
-    "extraResources": [{ "from": "release-source.zip", "to": "source/ravenai-desktop-source.zip" }],
-    "win": { "target": "nsis", "icon": "assets/icon.ico", "artifactName": "Ravenai-${version}-Windows-x64.exe" },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowElevation": false,
-      "allowToChangeInstallationDirectory": false,
-      "createDesktopShortcut": "always",
-      "createStartMenuShortcut": true,
-      "shortcutName": "Ravenai",
-      "runAfterFinish": false,
-      "deleteAppDataOnUninstall": true,
-      "installerLanguages": ["zh_CN", "en_US"],
-      "language": "2052"
-    }
+    "@playwright/test": "^1.65.1",
+    "@tauri-apps/cli": "2.12.6",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "6.3.0",
+    "typescript": "~5.9.3",
+    "vite": "8.3.8",
+    "vitest": "^4.0.0"
   }
 }

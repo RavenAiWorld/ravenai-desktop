@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ravenai",
+  "version": "3.0.0",
+  "identifier": "org.ravenai.client",
+  "build": {
+    "beforeDevCommand": "npm run dev", "beforeBuildCommand": "npm run build",
+    "devUrl": "http://127.0.0.1:1420", "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "label": "main", "title": "Ravenai", "width": 1240, "height": 820, "minWidth": 860, "minHeight": 640, "center": true, "visible": false, "create": false }],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'"
+    }
+  },
+  "bundle": {
+    "active": true, "targets": ["nsis"], "icon": ["../assets/icon.ico", "../assets/icon.png"],
+    "shortDescription": "Ravenai desktop client", "category": "Productivity",
+    "resources": { "../release-source.zip": "source/ravenai-desktop-source.zip", "../LICENSE": "LICENSE" },
+    "windows": { "nsis": { "installMode": "currentUser", "languages": ["SimpChinese", "English"], "displayLanguageSelector": false } }
+  }
+}
