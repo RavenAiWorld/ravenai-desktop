@@ -15,3 +15,5 @@ src-tauri/gen/
 artifacts/
 qa-results/
 test-results/
+*.exe
+SHA256SUMS.txt

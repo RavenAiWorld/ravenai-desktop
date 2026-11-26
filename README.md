@@ -1,13 +1,26 @@
-# Ravenai Desktop
+# Ravenai Desktop (`v1.00` / `v1.0.0`)
 
-Independent Windows desktop client built with Tauri 2, Rust and React. It uses the production Ravenai/Sub2API APIs and accounts.
+Independent Windows desktop client for [Ravenai (ravenaiworld.org)](https://ravenaiworld.org) built with **Tauri 2, Rust, and React**.
 
-## Build
+## Features
 
-Requirements: Node.js 24, Rust stable, Windows MSVC build tools and WebView2.
+- **Official Website PKCE Sign-In + DPAPI Storage**: Opens `ravenaiworld.org` in the system browser for normal authentication and consent, exchanges a single-use S256 PKCE code on an ephemeral loopback port, and stores tokens encrypted with Windows DPAPI.
+- **Model Plaza & Live TPS**: Full ticket-stub pricing matrix, scenario cost estimator, multi-route switching, 24-slot health bar, latency, and real-time TPS (`tok/s`).
+- **Channel Status**: 6-hour route health timeline, median latency, median TPS, and expandable per-model breakdown.
+- **GPT Group Degrade Check (`GPT分组降智检测`)**: Official Q&A + image verification reports with 24-hour rolling history.
+- **Model Fingerprint Detection (`模型指纹检测`)**: Native Rust integration of [`Ikaleio/lm-detector`](https://github.com/Ikaleio/lm-detector) (`lmfpd`, MIT) supporting 3-lane live API streaming detection and zero-cost offline scoring.
+- **API Keys & Usage Analytics**: Full Sub2API parity key management (inline searchable group switcher, custom key, quota, 5h/1d/7d rate limits, IP rules, expiration presets), usage stats KPIs, trend & top-model charts, filters, CSV export, and per-request TPS.
+- **Built-in Nova 3.4.0 Image Studio**: Local bundled image creation, editing, and asset library connected via scoped native streaming bridge.
+- **Ecosystem App Recommendations (`应用推荐`)**: Quick setup guides & official links for **Codex++**, **Cockpit Tools**, **CC Switch**, and **CodexHost**.
+- **Built-in Auto & Manual Updater (`版本与更新`)**: Startup update check toggle, top update reminder banner, manual check, real-time download progress, SHA256 verification, silent one-click upgrade + relaunch, and GitHub Releases manual download.
+
+## Build & Verify
+
+Requirements: Node.js 24, Rust stable (edition 2024 capable, e.g. 1.85+), Windows MSVC build tools, and WebView2.
 
 ```powershell
 npm ci
+npm --prefix studio/frontend ci
 npm run check
 npm test
 cargo test --manifest-path src-tauri/Cargo.toml --lib
@@ -17,24 +30,17 @@ powershell -NoProfile -File scripts/source-archive.ps1
 npm run package
 ```
 
-The installer is written to `src-tauri/target/release/bundle/nsis`. Development starts with `npm start`. The old `desktop/` and `frontend/` directories are historical references and are not packaged or loaded by this client. The pure pricing modules in `client/pricing` retain the production website's pricing rules; `scripts/sync-pricing.mjs` synchronizes those modules only.
-
-## Sign In
-
-The user selects **通过官网登录**. The default browser opens the official website, completes the website's normal authentication and security checks, and shows an explicit authorization page. A short-lived, single-use code returns through an ephemeral loopback listener. Rust exchanges it using S256 PKCE and keeps the resulting session encrypted with Windows DPAPI. Access and refresh tokens never enter React or browser local storage. The client uses the existing refresh rotation and logout APIs.
-
-Native screens provide account overview, model prices, API key management, usage and error records, billing history, redemption, subscriptions, referrals, and support conversations. Purchase, account security, image studio and model trace open their official website entries on user action. Those website entries retain their own browser login session.
-
-## Verification
-
-Playwright runs a new headless browser profile and injects disposable data only from `tests/ui`. It never attaches to an existing browser session. Screenshots and the test report are written to `qa-results` and are not release assets. These tests do not prove live website login success.
-
-The installed executable supports this separate, read-only startup check:
+## One-Click Release (Maintainer)
 
 ```powershell
-Ravenai.exe --verify-install --verify-report C:\absolute\path\verification.json
+powershell -NoProfile -File scripts/release.ps1 -Version 1.0.1 -Notes "更新说明"
 ```
 
-This creates a temporary profile, keeps the window hidden, verifies React startup, calls the real production public-settings API and exits. It does not open a browser, sign in, read an existing app session or modify account data. Final live-login acceptance remains a user-driven website authorization.
+Automatically updates version numbers across `package.json`, `Cargo.toml`, and `tauri.conf.json`, runs tests, builds the NSIS installer + `SHA256SUMS.txt`, tags `v<Version>`, pushes to GitHub, and publishes a GitHub Release. Both the website `/download` page and installed desktop clients automatically detect new releases.
 
-See `docs/desktop-auth.md` and `LICENSE`. The installer includes the corresponding application source archive under `source`.
+## License
+
+- Application & derived Sub2API / Nova Studio frontends: **GNU AGPL-3.0-only** ([LICENSE](LICENSE))
+- `lmfpd` SDK (`Ikaleio/lm-detector`): **MIT** ([docs/legal/lmfpd-MIT.txt](docs/legal/lmfpd-MIT.txt))
+- Bundled Inter / Geist Mono fonts: **SIL OFL 1.1** ([docs/legal/Inter-OFL-1.1.txt](docs/legal/Inter-OFL-1.1.txt))
+- See [NOTICE.md](NOTICE.md) for full attribution.

@@ -1,0 +1,15 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>网页复刻预览</title></head><body>
+<script>
+// This document is always loaded with sandbox="allow-scripts", without
+// allow-same-origin. Its response CSP also blocks all network access.
+addEventListener('message', event => {
+  if (event.source !== parent || event.data?.channel !== 'raven-replica-preview' || typeof event.data.html !== 'string') return;
+  let expected;
+  try { expected = new URL(document.referrer).origin; } catch { return; }
+  if (event.origin !== expected || event.data.html.length > 20 * 1024 * 1024) return;
+  document.open();
+  document.write(event.data.html);
+  document.close();
+}, { once: true });
+</script></body></html>

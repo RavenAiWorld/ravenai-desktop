@@ -353,6 +353,10 @@ mod tests {
             session: Mutex::new(None),
             pending: Mutex::new(None),
             verify_report: None,
+            studio_requests: Mutex::new(std::collections::HashMap::new()),
+            verify_studio: false,
+            verified_reads: Mutex::new(std::collections::HashMap::new()),
+            detector: Mutex::new(None),
         };
         let session = Session {
             access_token: "disposable-access".into(),

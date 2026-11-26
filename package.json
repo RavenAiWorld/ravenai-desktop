@@ -1,7 +1,7 @@
 {
   "name": "ravenai-desktop",
   "productName": "Ravenai",
-  "version": "3.0.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Ravenai desktop client for the production Sub2API service",
   "author": "Ravenai",
@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 1420 --strictPort",
     "check": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && npm --prefix studio/frontend run studio:build",
     "start": "tauri dev",
     "package": "tauri build",
     "test": "vitest run",
