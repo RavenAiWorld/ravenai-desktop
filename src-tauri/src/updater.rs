@@ -1,6 +1,7 @@
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use tauri::{Emitter, State};
 use tauri_plugin_opener::OpenerExt;
 
@@ -49,6 +50,14 @@ struct SiteReleaseEnvelope {
 }
 
 #[derive(Deserialize)]
+struct SitePlatformAsset {
+    download_url: String,
+    asset_name: String,
+    file_size: Option<u64>,
+    sha256: Option<String>,
+}
+
+#[derive(Deserialize)]
 struct SiteReleasePayload {
     version: String,
     display_version: Option<String>,
@@ -57,6 +66,7 @@ struct SiteReleasePayload {
     asset_name: String,
     file_size: Option<u64>,
     sha256: Option<String>,
+    downloads: Option<HashMap<String, SitePlatformAsset>>,
     release_notes: Option<String>,
     published_at: Option<String>,
 }
@@ -75,6 +85,52 @@ struct GitHubAsset {
     name: String,
     size: u64,
     browser_download_url: String,
+}
+
+fn current_platform_key() -> &'static str {
+    if cfg!(target_os = "macos") {
+        if cfg!(target_arch = "aarch64") {
+            "macos_arm64"
+        } else {
+            "macos_x64"
+        }
+    } else {
+        "windows_x64"
+    }
+}
+
+fn is_allowed_installer_name(lower_name: &str) -> bool {
+    lower_name.ends_with("-setup.exe") || lower_name.ends_with(".dmg")
+}
+
+fn updater_http_client() -> Result<reqwest::Client, String> {
+    let policy = reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.previous().len() >= 5 {
+            return attempt.error("too many redirects");
+        }
+        let url = attempt.url();
+        let host = url.host_str().unwrap_or("");
+        let safe_host = host == "github.com"
+            || host == "api.github.com"
+            || host == "ravenaiworld.org"
+            || host.ends_with(".githubusercontent.com");
+        if url.scheme() == "https" && safe_host {
+            attempt.follow()
+        } else {
+            attempt.error("blocked untrusted redirect")
+        }
+    });
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(300))
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .redirect(policy)
+        .user_agent(format!(
+            "RavenaiDesktop/{} ({})",
+            env!("CARGO_PKG_VERSION"),
+            std::env::consts::OS
+        ))
+        .build()
+        .map_err(|_| "无法初始化更新网络连接。".into())
 }
 
 fn parse_semver(raw: &str) -> Option<(u64, u64, u64)> {
@@ -137,9 +193,10 @@ pub fn validate_download_url(raw: &str) -> Result<String, String> {
     }
     let host = url.host_str().unwrap_or("");
     let path = url.path();
+    let lower = path.to_ascii_lowercase();
     let allowed = host == "github.com"
         && path.starts_with(&format!("/{GITHUB_OWNER}/{GITHUB_REPO_NAME}/releases/download/"))
-        && path.to_ascii_lowercase().ends_with("-setup.exe");
+        && is_allowed_installer_name(&lower);
     if !allowed {
         return Err("安装包地址不属于 Ravenai 官方 GitHub Releases。".into());
     }
@@ -148,10 +205,11 @@ pub fn validate_download_url(raw: &str) -> Result<String, String> {
 
 fn sanitize_asset_name(name: &str) -> Result<String, String> {
     let clean = name.trim();
+    let lower = clean.to_ascii_lowercase();
     if clean.is_empty()
         || clean.contains(['/', '\\', ':', '*', '?', '"', '<', '>', '|'])
         || clean.contains("..")
-        || !clean.to_ascii_lowercase().ends_with("-setup.exe")
+        || !is_allowed_installer_name(&lower)
     {
         return Err("安装包文件名无效。".into());
     }
@@ -175,6 +233,38 @@ pub fn parse_sha256sums(content: &str, asset_name: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn pick_github_asset<'a>(assets: &'a [GitHubAsset], platform_key: &str) -> Option<&'a GitHubAsset> {
+    match platform_key {
+        "macos_arm64" => assets
+            .iter()
+            .find(|a| {
+                let n = a.name.to_ascii_lowercase();
+                n.ends_with(".dmg") && (n.contains("aarch64") || n.contains("arm64"))
+            })
+            .or_else(|| {
+                assets.iter().find(|a| {
+                    let n = a.name.to_ascii_lowercase();
+                    n.ends_with(".dmg") && n.contains("universal")
+                })
+            }),
+        "macos_x64" => assets
+            .iter()
+            .find(|a| {
+                let n = a.name.to_ascii_lowercase();
+                n.ends_with(".dmg") && (n.contains("x64") || n.contains("x86_64") || n.contains("intel"))
+            })
+            .or_else(|| {
+                assets.iter().find(|a| {
+                    let n = a.name.to_ascii_lowercase();
+                    n.ends_with(".dmg") && n.contains("universal")
+                })
+            }),
+        _ => assets
+            .iter()
+            .find(|a| a.name.to_ascii_lowercase().ends_with("-setup.exe")),
+    }
 }
 
 async fn fetch_from_site(http: &reqwest::Client, current: &str) -> Result<ReleaseInfo, String> {
@@ -201,8 +291,32 @@ async fn fetch_from_site(http: &reqwest::Client, current: &str) -> Result<Releas
         .trim_start_matches(['v', 'V'])
         .to_string();
     let release_url = validate_release_url(&payload.release_url)?;
-    let download_url = validate_download_url(&payload.download_url)?;
-    let asset_name = sanitize_asset_name(&payload.asset_name)?;
+
+    let platform_key = current_platform_key();
+    let (raw_dl_url, raw_asset_name, file_size, raw_sha) = if let Some(asset) = payload
+        .downloads
+        .as_ref()
+        .and_then(|map| map.get(platform_key))
+    {
+        (
+            asset.download_url.clone(),
+            asset.asset_name.clone(),
+            asset.file_size.unwrap_or(0),
+            asset.sha256.clone(),
+        )
+    } else if platform_key == "windows_x64" {
+        (
+            payload.download_url.clone(),
+            payload.asset_name.clone(),
+            payload.file_size.unwrap_or(0),
+            payload.sha256.clone(),
+        )
+    } else {
+        return Err("官网更新接口暂未返回当前平台安装包。".into());
+    };
+
+    let download_url = validate_download_url(&raw_dl_url)?;
+    let asset_name = sanitize_asset_name(&raw_asset_name)?;
     Ok(ReleaseInfo {
         current_version: current.to_string(),
         display_version: payload
@@ -214,9 +328,8 @@ async fn fetch_from_site(http: &reqwest::Client, current: &str) -> Result<Releas
         release_url,
         download_url,
         asset_name,
-        file_size: payload.file_size.unwrap_or(0),
-        sha256: payload
-            .sha256
+        file_size,
+        sha256: raw_sha
             .map(|s| s.trim().to_ascii_lowercase())
             .filter(|s| s.len() == 64 && s.chars().all(|c| c.is_ascii_hexdigit())),
         release_notes: payload.release_notes.unwrap_or_default(),
@@ -229,10 +342,6 @@ async fn fetch_from_github(http: &reqwest::Client, current: &str) -> Result<Rele
     let resp = http
         .get(GITHUB_API_LATEST)
         .header("Accept", "application/vnd.github+json")
-        .header(
-            "User-Agent",
-            format!("RavenaiDesktop/{}", env!("CARGO_PKG_VERSION")),
-        )
         .timeout(std::time::Duration::from_secs(12))
         .send()
         .await
@@ -252,11 +361,8 @@ async fn fetch_from_github(http: &reqwest::Client, current: &str) -> Result<Rele
         .trim()
         .trim_start_matches(['v', 'V'])
         .to_string();
-    let installer = rel
-        .assets
-        .iter()
-        .find(|a| a.name.to_ascii_lowercase().ends_with("-setup.exe"))
-        .ok_or("最新 Release 中未找到 Windows 安装包资产。")?;
+    let installer = pick_github_asset(&rel.assets, current_platform_key())
+        .ok_or("最新 Release 中未找到当前系统对应的安装包资产。")?;
     let release_url = validate_release_url(&rel.html_url)?;
     let download_url = validate_download_url(&installer.browser_download_url)?;
     let asset_name = sanitize_asset_name(&installer.name)?;
@@ -269,10 +375,6 @@ async fn fetch_from_github(http: &reqwest::Client, current: &str) -> Result<Rele
     {
         if let Ok(sum_resp) = http
             .get(&sum_asset.browser_download_url)
-            .header(
-                "User-Agent",
-                format!("RavenaiDesktop/{}", env!("CARGO_PKG_VERSION")),
-            )
             .timeout(std::time::Duration::from_secs(10))
             .send()
             .await
@@ -302,12 +404,13 @@ async fn fetch_from_github(http: &reqwest::Client, current: &str) -> Result<Rele
 }
 
 #[tauri::command]
-pub async fn check_update(state: State<'_, AppState>) -> Result<ReleaseInfo, String> {
+pub async fn check_update(_state: State<'_, AppState>) -> Result<ReleaseInfo, String> {
     let current = env!("CARGO_PKG_VERSION");
-    if let Ok(info) = fetch_from_site(&state.http, current).await {
+    let http = updater_http_client()?;
+    if let Ok(info) = fetch_from_site(&http, current).await {
         return Ok(info);
     }
-    fetch_from_github(&state.http, current).await
+    fetch_from_github(&http, current).await
 }
 
 #[tauri::command]
@@ -381,14 +484,9 @@ pub async fn install_update(
         },
     );
 
-    let mut resp = state
-        .http
+    let http = updater_http_client()?;
+    let mut resp = http
         .get(&download_url)
-        .header(
-            "User-Agent",
-            format!("RavenaiDesktop/{}", env!("CARGO_PKG_VERSION")),
-        )
-        .timeout(std::time::Duration::from_secs(300))
         .send()
         .await
         .map_err(|_| "下载更新安装包失败，请检查网络连接或选择前往 GitHub 手动下载。".to_string())?;
@@ -398,6 +496,7 @@ pub async fn install_update(
             resp.status().as_u16()
         ));
     }
+
     let total = resp.content_length().unwrap_or(0);
     if total > 250 * 1024 * 1024 {
         return Err("安装包体积超出安全限制。".into());
@@ -501,10 +600,18 @@ pub async fn install_update(
         app.exit(0);
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&target_path)
+            .spawn()
+            .map_err(|_| "无法打开下载的 DMG 安装镜像，请前往 GitHub 手动安装。")?;
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
         let _ = target_path;
-        return Err("自动安装仅支持 Windows 平台。".into());
+        return Err("自动安装仅支持 Windows 与 macOS 平台。".into());
     }
 
     #[allow(unreachable_code)]
@@ -527,9 +634,17 @@ mod tests {
     }
 
     #[test]
-    fn download_url_allowlist_blocks_untrusted_hosts_and_non_exe() {
+    fn download_url_allowlist_supports_windows_and_macos_installers() {
         assert!(validate_download_url(
-            "https://github.com/RavenAiWorld/ravenai-desktop/releases/download/v1.0.1/Ravenai_1.0.1_x64-setup.exe"
+            "https://github.com/RavenAiWorld/ravenai-desktop/releases/download/v1.0.0/Ravenai_1.0.0_x64-setup.exe"
+        )
+        .is_ok());
+        assert!(validate_download_url(
+            "https://github.com/RavenAiWorld/ravenai-desktop/releases/download/v1.0.0/Ravenai_1.0.0_aarch64.dmg"
+        )
+        .is_ok());
+        assert!(validate_download_url(
+            "https://github.com/RavenAiWorld/ravenai-desktop/releases/download/v1.0.0/Ravenai_1.0.0_x64.dmg"
         )
         .is_ok());
         assert!(validate_download_url(
@@ -558,11 +673,42 @@ mod tests {
 
     #[test]
     fn parse_sha256sums_extracts_matching_asset_hash() {
-        let sample = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef  Ravenai_1.0.0_x64-setup.exe\n";
+        let sample = concat!(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef  Ravenai_1.0.0_x64-setup.exe\n",
+            "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210  Ravenai_1.0.0_aarch64.dmg\n"
+        );
         assert_eq!(
             parse_sha256sums(sample, "Ravenai_1.0.0_x64-setup.exe").as_deref(),
             Some("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
         );
+        assert_eq!(
+            parse_sha256sums(sample, "Ravenai_1.0.0_aarch64.dmg").as_deref(),
+            Some("fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210")
+        );
         assert!(parse_sha256sums(sample, "other.exe").is_none());
+    }
+
+    #[test]
+    fn platform_asset_picker_selects_matching_installer() {
+        let assets = vec![
+            GitHubAsset {
+                name: "Ravenai_1.0.0_x64-setup.exe".into(),
+                size: 100,
+                browser_download_url: "https://github.com/RavenAiWorld/ravenai-desktop/releases/download/v1.0.0/Ravenai_1.0.0_x64-setup.exe".into(),
+            },
+            GitHubAsset {
+                name: "Ravenai_1.0.0_aarch64.dmg".into(),
+                size: 200,
+                browser_download_url: "https://github.com/RavenAiWorld/ravenai-desktop/releases/download/v1.0.0/Ravenai_1.0.0_aarch64.dmg".into(),
+            },
+            GitHubAsset {
+                name: "Ravenai_1.0.0_x64.dmg".into(),
+                size: 210,
+                browser_download_url: "https://github.com/RavenAiWorld/ravenai-desktop/releases/download/v1.0.0/Ravenai_1.0.0_x64.dmg".into(),
+            },
+        ];
+        assert_eq!(pick_github_asset(&assets, "windows_x64").unwrap().name, "Ravenai_1.0.0_x64-setup.exe");
+        assert_eq!(pick_github_asset(&assets, "macos_arm64").unwrap().name, "Ravenai_1.0.0_aarch64.dmg");
+        assert_eq!(pick_github_asset(&assets, "macos_x64").unwrap().name, "Ravenai_1.0.0_x64.dmg");
     }
 }

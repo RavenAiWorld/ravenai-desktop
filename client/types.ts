@@ -36,6 +36,8 @@ export interface Settings {
 
 export interface ClientState {
   version: string
+  platform?: string
+  arch?: string
   authenticated: boolean
   user: User | null
   server: string

@@ -114,6 +114,7 @@ export function UpdateBanner({
 
 export function UpdateDrawer({
   currentVersion,
+  platform,
   info,
   checking,
   checkError,
@@ -124,6 +125,7 @@ export function UpdateDrawer({
   onClose,
 }: {
   currentVersion: string
+  platform?: string
   info: ReleaseInfo | null
   checking: boolean
   checkError: string
@@ -134,6 +136,7 @@ export function UpdateDrawer({
   onClose: () => void
 }) {
   const notice = useNotice()
+  const isMac = platform === 'macos'
   const [installing, setInstalling] = useState(false)
   const [installError, setInstallError] = useState('')
   const [progress, setProgress] = useState<UpdateProgress | null>(null)
@@ -168,6 +171,10 @@ export function UpdateDrawer({
           sha256: info.sha256,
         },
       })
+      if (isMac) {
+        setInstalling(false)
+        notice('已校验并打开 DMG 安装包，请将 Ravenai 拖入 Applications 完成升级')
+      }
     } catch (e) {
       setInstallError(e instanceof Error ? e.message : String(e))
       setInstalling(false)
@@ -186,7 +193,9 @@ export function UpdateDrawer({
     progress?.phase === 'verifying'
       ? '正在验证安装包 SHA256 完整性...'
       : progress?.phase === 'launching'
-        ? '校验通过，正在静默安装并重启新版...'
+        ? isMac
+          ? '校验通过，正在打开 DMG 安装镜像...'
+          : '校验通过，正在静默安装并重启新版...'
         : `正在下载 ${info?.asset_name || '更新安装包'} (${progress?.percent ?? 0}%)`
 
   return (

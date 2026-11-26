@@ -18,10 +18,16 @@ pub fn http_client() -> Result<reqwest::Client, String> {
         .timeout(Duration::from_secs(30))
         .connect_timeout(Duration::from_secs(12))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent(concat!(
-            "RavenaiDesktop/",
+        .user_agent(format!(
+            "RavenaiDesktop/{} ({})",
             env!("CARGO_PKG_VERSION"),
-            " (Windows)"
+            if cfg!(target_os = "macos") {
+                "macOS"
+            } else if cfg!(target_os = "windows") {
+                "Windows"
+            } else {
+                std::env::consts::OS
+            }
         ))
         .build()
         .map_err(|_| "Could not initialize the connection".into())

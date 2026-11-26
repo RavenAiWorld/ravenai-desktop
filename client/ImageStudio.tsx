@@ -21,7 +21,10 @@ async function verifyPreview(): Promise<boolean> {
     const timer = setTimeout(() => finish(false), 5000)
     window.addEventListener('message', receive)
     frame.onload = () => frame.contentWindow?.postMessage({ channel: 'raven-replica-preview', html: '<html><body><script>let isolated = false; try { parent.document.title } catch { isolated = true } parent.postMessage({channel: "raven-preview-verification", isolated}, "*")<\/script></body></html>' }, '*')
-    frame.src = 'http://raven-preview.localhost/preview'
+    frame.src =
+      typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent)
+        ? 'raven-preview://localhost/preview'
+        : 'http://raven-preview.localhost/preview'
     document.body.append(frame)
   })
 }

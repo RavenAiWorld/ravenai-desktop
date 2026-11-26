@@ -422,14 +422,18 @@ export default function App() {
                     </span>
                     <span className="login-trust-item">
                       <Lock size={13} />
-                      DPAPI 加密
+                      {state.platform === 'macos' ? '本地加密存储' : 'DPAPI 加密'}
                     </span>
                   </div>
                 </div>
               </main>
 
               <footer>
-                <span>Ravenai Desktop for Windows</span>
+                <span>
+                  {state.platform === 'macos'
+                    ? 'Ravenai Desktop for macOS'
+                    : 'Ravenai Desktop for Windows'}
+                </span>
                 <span className="mono">{formatDisplayVersion(state.version)}</span>
               </footer>
             </div>
@@ -691,7 +695,13 @@ export default function App() {
                     {updateInfo?.has_update ? `升级至 ${updateInfo.display_version}` : '检查更新'}
                   </button>
                 </KeyValue>
-                <KeyValue label="运行平台">Windows Desktop (Tauri)</KeyValue>
+                <KeyValue label="运行平台">
+                  {state?.platform === 'macos'
+                    ? state?.arch === 'aarch64'
+                      ? 'macOS Apple Silicon (Tauri)'
+                      : 'macOS Intel (Tauri)'
+                    : 'Windows Desktop (Tauri)'}
+                </KeyValue>
               </div>
 
               <h3>服务端点</h3>
@@ -717,6 +727,7 @@ export default function App() {
           {updateOpen && state && (
             <UpdateDrawer
               currentVersion={state.version}
+              platform={state.platform}
               info={updateInfo}
               checking={updateChecking}
               checkError={updateError}

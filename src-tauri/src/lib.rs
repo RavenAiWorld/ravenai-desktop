@@ -62,7 +62,15 @@ struct AppState {
 async fn client_state(state: State<'_, AppState>) -> Result<Value, String> {
     let session = state.session.lock().await;
     Ok(
-        json!({"version":env!("CARGO_PKG_VERSION"),"server":api::SITE,"user":session.as_ref().map(|s|s.user.clone()),"authenticated":session.is_some(),"verify_studio":state.verify_studio}),
+        json!({
+            "version": env!("CARGO_PKG_VERSION"),
+            "platform": std::env::consts::OS,
+            "arch": std::env::consts::ARCH,
+            "server": api::SITE,
+            "user": session.as_ref().map(|s| s.user.clone()),
+            "authenticated": session.is_some(),
+            "verify_studio": state.verify_studio
+        }),
     )
 }
 
@@ -412,6 +420,12 @@ pub fn run() {
                                 && url.port() == Some(1420))
                     })
                     .build()?;
+            #[cfg(target_os = "macos")]
+            {
+                if let Ok(menu) = tauri::menu::Menu::default(app.handle()) {
+                    let _ = app.set_menu(menu);
+                }
+            }
             if !verifying {
                 window.show()?;
             }

@@ -156,7 +156,7 @@ pub async fn start(app: tauri::AppHandle) -> Result<(), String> {
     if app.opener().open_url(url.as_str(), None::<&str>).is_err() {
         pending.take();
         let _ = stop_tx.send(());
-        return Err("无法打开默认浏览器，请检查 Windows 默认应用设置。".into());
+        return Err("无法打开默认浏览器，请检查系统默认浏览器设置。".into());
     }
     drop(pending);
     tauri::async_runtime::spawn(async move {
