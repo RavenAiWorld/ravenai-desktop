@@ -126,12 +126,13 @@ jobs:
       - name: Upload installers to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist-release/* --clobber
+          if gh release view "$TAG" -R "$GH_REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" -R "$GH_REPO" dist-release/* --clobber
           else
-            gh release create "$TAG" dist-release/* --title "Ravenai Desktop $TAG" --latest
+            gh release create "$TAG" -R "$GH_REPO" dist-release/* --title "Ravenai Desktop $TAG" --latest
           fi
           python3 - "$TAG" <<'PY'
           import pathlib, sys
@@ -149,4 +150,4 @@ jobs:
           )
           pathlib.Path("release-notes.md").write_text(notes, encoding="utf-8")
           PY
-          gh release edit "$TAG" --title "Ravenai Desktop v1.00 ($TAG)" --notes-file release-notes.md
+          gh release edit "$TAG" -R "$GH_REPO" --title "Ravenai Desktop v1.00 ($TAG)" --notes-file release-notes.md
