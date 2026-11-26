@@ -467,11 +467,11 @@ code,
 }
 
 .sidebar {
-  width: 224px;
-  flex: 0 0 224px;
+  width: 234px;
+  flex: 0 0 234px;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
-  padding: 14px 12px 12px;
+  padding: 14px 11px 12px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -482,7 +482,7 @@ code,
   display: flex;
   gap: 9px;
   align-items: center;
-  padding: 4px 8px 16px;
+  padding: 4px 8px 14px;
 }
 
 .brand-mark {
@@ -529,17 +529,38 @@ code,
   border: 1px solid var(--coral-border);
 }
 
-.workspace-label {
-  color: var(--muted-2);
-  font-size: 11px;
-  font-weight: 500;
-  padding: 6px 10px 6px;
+.sidebar-nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 2px;
+  scrollbar-width: thin;
 }
 
-.sidebar nav {
+.nav-section {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.nav-section + .nav-section {
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.nav-section-title {
+  color: var(--muted-2);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 2px 9px 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sidebar nav button {
@@ -548,26 +569,55 @@ code,
   border: 1px solid transparent;
   box-shadow: none;
   justify-content: flex-start;
-  padding: 0 10px;
-  color: var(--muted);
+  padding: 4px 8px;
+  color: var(--text-2);
   width: 100%;
-  min-height: 35px;
+  min-height: 36px;
   gap: 9px;
-  border-radius: var(--radius-sm);
+  border-radius: 9px;
   font-size: 13px;
   font-weight: 500;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
 }
 
-.sidebar nav button svg {
+.nav-icon-tile {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  border-radius: 7px;
+  background: var(--control);
+  border: 1px solid var(--border);
   color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.14s ease, background 0.14s ease, color 0.14s ease, border-color 0.14s ease;
+}
+
+.nav-icon-tile svg {
+  color: currentColor;
   flex-shrink: 0;
 }
 
-.sidebar nav button span {
+.sidebar nav button .nav-label {
   flex: 1;
   text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-badge {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: var(--coral-soft);
+  color: var(--coral-text);
+  border: 1px solid var(--coral-border);
 }
 
 .sidebar nav button:hover {
@@ -575,18 +625,60 @@ code,
   color: var(--text);
 }
 
-.sidebar nav button:hover svg {
-  color: var(--text);
+.sidebar nav button:hover .nav-icon-tile {
+  background: var(--coral-soft);
+  border-color: var(--coral-border);
+  color: var(--coral-text);
 }
 
 .sidebar nav button.active {
-  background: var(--control);
+  background: var(--surface);
+  border-color: var(--coral-border);
   color: var(--text);
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(20, 20, 19, 0.06);
 }
 
-.sidebar nav button.active svg {
-  color: var(--coral);
+.sidebar nav button.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 0 3px 3px 0;
+  background: var(--coral);
+}
+
+.sidebar nav button.active .nav-icon-tile {
+  background: var(--coral);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(217, 119, 87, 0.28);
+}
+
+:root[data-theme='dark'] .nav-icon-tile {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.09);
+  color: var(--muted);
+}
+
+:root[data-theme='dark'] .sidebar nav button:hover .nav-icon-tile {
+  background: var(--coral-soft);
+  border-color: var(--coral-border);
+  color: var(--coral-text);
+}
+
+:root[data-theme='dark'] .sidebar nav button.active {
+  background: var(--surface-2);
+  border-color: var(--coral-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+:root[data-theme='dark'] .sidebar nav button.active .nav-icon-tile {
+  background: var(--coral);
+  color: #141413;
 }
 
 .nav-dot {
@@ -3453,8 +3545,9 @@ tbody tr:hover {
   .brand { padding: 4px 0 14px; justify-content: center; }
 
   .brand-meta,
-  .workspace-label,
-  .sidebar nav button span,
+  .nav-section-title,
+  .sidebar nav button .nav-label,
+  .sidebar nav button .nav-badge,
   .sidebar nav button .ext-arrow,
   .nav-dot,
   .account,
@@ -3462,7 +3555,9 @@ tbody tr:hover {
     display: none;
   }
 
-  .sidebar nav button { justify-content: center; padding: 0; }
+  .sidebar nav button { justify-content: center; padding: 4px 0; }
+  .sidebar nav button.active::before { display: none; }
+  .nav-section + .nav-section { padding-top: 6px; }
   .sidebar-divider { margin: 10px 6px; }
   .sidebar-bottom { flex-direction: column; gap: 6px; }
 

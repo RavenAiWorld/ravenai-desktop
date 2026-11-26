@@ -131,7 +131,7 @@ test('model fingerprint detector runs live API detection and offline scoring', a
   await page.screenshot({ path: 'qa-results/模型指纹检测-离线.png' })
 })
 
-test('update center shows version v1.00, update reminder, manual check, and ecosystem recommendations', async ({ page }) => {
+test('update center shows version v1.00, update reminder, manual check, and real-UI ecosystem recommendations', async ({ page }) => {
   await setup(page); await page.goto('/')
   await expect(page.getByRole('button', { name: '版本与更新' })).toContainText('v1.00')
   await page.evaluate(() => {
@@ -145,14 +145,15 @@ test('update center shows version v1.00, update reminder, manual check, and ecos
       asset_name: 'Ravenai_1.0.1_x64-setup.exe',
       file_size: 10510000,
       sha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-      release_notes: '- 优化模型指纹检测速度\n- 修复部分网络波动重试问题',
-      published_at: '2026-11-26T08:00:00Z',
+      release_notes: '## v1.0.1 更新说明\n- **界面升级**：优化侧边栏层次与生态项目实景展示\n- 修复部分网络波动重试问题',
+      published_at: '2026-11-26T08:30:00Z',
       source: 'ravenai',
     }
   })
   await page.getByRole('button', { name: '版本与更新' }).click()
   await page.getByRole('button', { name: '立即检查更新' }).click()
   await expect(page.getByRole('dialog')).toContainText('一键下载并更新到 v1.0.1')
+  await expect(page.getByRole('dialog')).not.toContainText('##')
   await page.screenshot({ path: 'qa-results/版本与更新.png' })
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.getByRole('region', { name: '发现新版本提醒' })).toBeVisible()
@@ -160,7 +161,16 @@ test('update center shows version v1.00, update reminder, manual check, and ecos
   for (const name of ['Codex++', 'Cockpit Tools', 'CC Switch', 'CodexHost']) {
     await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
   }
-  await page.screenshot({ path: 'qa-results/应用推荐.png' })
+  const previewImgs = page.locator('.eco-preview-img')
+  await expect(previewImgs).toHaveCount(4)
+  for (let i = 0; i < 4; i++) {
+    expect(await previewImgs.nth(i).evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 200)).toBeTruthy()
+  }
+  await page.screenshot({ path: 'qa-results/应用推荐.png', fullPage: true })
+  await page.getByRole('button', { name: '查看大图：Codex++' }).click()
+  await expect(page.getByRole('dialog', { name: 'Codex++ 界面大图' })).toBeVisible()
+  await page.getByRole('button', { name: '关闭大图预览' }).click()
+  await expect(page.getByRole('dialog', { name: 'Codex++ 界面大图' })).toHaveCount(0)
 })
 
 test('support create and reply use server actions', async ({ page }) => {

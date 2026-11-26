@@ -61,20 +61,39 @@ import {
   type ReleaseInfo,
 } from './UpdateCenter'
 
-const pages = [
-  { id: 'dashboard', label: '概览', subtitle: '账户余额、消费趋势与平台配额', icon: House },
-  { id: 'models', label: '模型广场', subtitle: '可用模型、实时倍率与场景估价', icon: Boxes },
-  { id: 'channels', label: '渠道状态', subtitle: '6 小时线路健康度与响应延迟', icon: Radio },
-  { id: 'trace', label: 'GPT分组降智检测', subtitle: '最近 24 小时官方问答与生图核验', icon: Sparkles },
-  { id: 'detector', label: '模型指纹检测', subtitle: '数字指纹核验 API 真实模型身份', icon: Fingerprint },
-  { id: 'keys', label: 'API 密钥', subtitle: '密钥凭证、分组路由与一键接入', icon: KeyRound },
-  { id: 'usage', label: '用量记录', subtitle: '调用明细、错误排查与 CSV 导出', icon: Activity },
-  { id: 'studio', label: '生图平台', subtitle: '创作工作台、图片编辑与作品库', icon: Image },
-  { id: 'ecosystem', label: '应用推荐', subtitle: '精选支持 Ravenai 中转接入的开源生态工具', icon: Compass },
-  { id: 'purchase', label: '购买额度', subtitle: 'Ravenai 官方额度商店', icon: Wallet },
-  { id: 'redeem', label: '兑换额度', subtitle: '兑换卡密、活动额度与订阅套餐', icon: Gift },
-  { id: 'support', label: '支持工单', subtitle: '技术支持与历史工单对话', icon: MessageSquare },
-  { id: 'profile', label: '我的账号', subtitle: '个人资料、订阅套餐与邀请返利', icon: UserRound },
+type NavSectionId = 'workspace' | 'ecosystem' | 'account'
+type NavTone = 'coral' | 'indigo' | 'emerald' | 'amber' | 'violet' | 'blue' | 'cyan' | 'rose' | 'teal' | 'slate'
+
+interface NavPageDef {
+  id: string
+  label: string
+  subtitle: string
+  icon: typeof House
+  section: NavSectionId
+  tone: NavTone
+  badge?: string
+}
+
+const NAV_SECTIONS: { id: NavSectionId; label: string }[] = [
+  { id: 'workspace', label: '核心工作台' },
+  { id: 'ecosystem', label: '创作与生态' },
+  { id: 'account', label: '额度与服务' },
+]
+
+const pages: NavPageDef[] = [
+  { id: 'dashboard', label: '概览', subtitle: '账户余额、消费趋势与平台配额', icon: House, section: 'workspace', tone: 'coral' },
+  { id: 'models', label: '模型广场', subtitle: '可用模型、实时倍率与场景估价', icon: Boxes, section: 'workspace', tone: 'indigo' },
+  { id: 'channels', label: '渠道状态', subtitle: '6 小时线路健康度与响应延迟', icon: Radio, section: 'workspace', tone: 'emerald' },
+  { id: 'trace', label: 'GPT分组降智检测', subtitle: '最近 24 小时官方问答与生图核验', icon: Sparkles, section: 'workspace', tone: 'amber' },
+  { id: 'detector', label: '模型指纹检测', subtitle: '数字指纹核验 API 真实模型身份', icon: Fingerprint, section: 'workspace', tone: 'violet' },
+  { id: 'keys', label: 'API 密钥', subtitle: '密钥凭证、分组路由与一键接入', icon: KeyRound, section: 'workspace', tone: 'blue' },
+  { id: 'usage', label: '用量记录', subtitle: '调用明细、错误排查与 CSV 导出', icon: Activity, section: 'workspace', tone: 'cyan' },
+  { id: 'studio', label: '生图平台', subtitle: '创作工作台、图片编辑与作品库', icon: Image, section: 'ecosystem', tone: 'rose', badge: 'Nova' },
+  { id: 'ecosystem', label: '应用推荐', subtitle: '精选支持 Ravenai 中转接入的开源生态工具', icon: Compass, section: 'ecosystem', tone: 'teal', badge: '4 款' },
+  { id: 'purchase', label: '购买额度', subtitle: 'Ravenai 官方额度商店', icon: Wallet, section: 'account', tone: 'amber' },
+  { id: 'redeem', label: '兑换额度', subtitle: '兑换卡密、活动额度与订阅套餐', icon: Gift, section: 'account', tone: 'coral' },
+  { id: 'support', label: '支持工单', subtitle: '技术支持与历史工单对话', icon: MessageSquare, section: 'account', tone: 'emerald' },
+  { id: 'profile', label: '我的账号', subtitle: '个人资料、订阅套餐与邀请返利', icon: UserRound, section: 'account', tone: 'slate' },
 ]
 
 export default function App() {
@@ -427,26 +446,44 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="workspace-label">工作空间</div>
-                <nav aria-label="主要导航">
-                  {pages
-                    .filter(p => !['models', 'channels'].includes(p.id) || settings.model_plaza_enabled !== false)
-                    .map(item => (
-                      <button
-                        key={item.id}
-                        aria-label={item.label}
-                        title={item.label}
-                        className={page === item.id ? 'active' : ''}
-                        onClick={() => {
-                          if (item.id === 'models') setModelGroup('')
-                          setPage(item.id)
-                        }}
-                      >
-                        <item.icon size={16} />
-                        <span>{item.label}</span>
-                        {item.id === 'support' && unreadTickets > 0 && <i className="nav-dot" aria-hidden="true" />}
-                      </button>
-                    ))}
+                <nav aria-label="主要导航" className="sidebar-nav">
+                  {NAV_SECTIONS.map(section => {
+                    const sectionItems = pages.filter(
+                      p =>
+                        p.section === section.id &&
+                        (!['models', 'channels'].includes(p.id) || settings.model_plaza_enabled !== false),
+                    )
+                    if (!sectionItems.length) return null
+                    return (
+                      <div key={section.id} className="nav-section">
+                        <div className="nav-section-title">{section.label}</div>
+                        {sectionItems.map(item => (
+                          <button
+                            key={item.id}
+                            aria-label={item.label}
+                            title={item.label}
+                            data-tone={item.tone}
+                            className={page === item.id ? 'active' : ''}
+                            onClick={() => {
+                              if (item.id === 'models') setModelGroup('')
+                              setPage(item.id)
+                            }}
+                          >
+                            <span className="nav-icon-tile" aria-hidden="true">
+                              <item.icon size={14} />
+                            </span>
+                            <span className="nav-label">{item.label}</span>
+                            {item.badge && (
+                              <span className="nav-badge" aria-hidden="true">
+                                {item.badge}
+                              </span>
+                            )}
+                            {item.id === 'support' && unreadTickets > 0 && <i className="nav-dot" aria-hidden="true" />}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
                 </nav>
 
                 <div className="spacer" />

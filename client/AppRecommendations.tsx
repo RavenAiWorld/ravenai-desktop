@@ -1,4 +1,13 @@
-import { ArrowUpRight, Compass, KeyRound, Layers, Sparkles, Terminal, Wrench } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowUpRight, KeyRound, Maximize2, X } from 'lucide-react'
+import codexppUi from '../assets/ecosystem/codexpp-ui.webp'
+import codexppIcon from '../assets/ecosystem/codexpp-icon.png'
+import cockpitUi from '../assets/ecosystem/cockpit-ui.webp'
+import cockpitIcon from '../assets/ecosystem/cockpit-icon.png'
+import ccswitchUi from '../assets/ecosystem/ccswitch-ui.webp'
+import ccswitchIcon from '../assets/ecosystem/ccswitch-icon.png'
+import codexhostUi from '../assets/ecosystem/codexhost-ui.webp'
+import codexhostIcon from '../assets/ecosystem/codexhost-icon.png'
 import { native } from './native'
 import { splitEndpoints } from './keySetup'
 import { CopyButton, ErrorMessage, useAction } from './ui'
@@ -6,66 +15,67 @@ import { CopyButton, ErrorMessage, useAction } from './ui'
 interface RecommendedApp {
   id: string
   name: string
-  tagline: string
   repo: string
   githubUrl: string
   homeUrl?: string
   protocol: 'openai' | 'both'
-  tags: string[]
-  description: string
-  setupTip: string
+  summary: string
+  setupHint: string
+  uiPreview: string
+  uiCaption: string
+  iconImg: string
 }
 
 const RECOMMENDED_APPS: RecommendedApp[] = [
   {
     id: 'codex-pp',
     name: 'Codex++',
-    tagline: 'CodexApp 全能增强套件与自定义中转启动器',
     repo: 'BigPizzaV3/CodexPlusPlus',
     githubUrl: 'https://github.com/BigPizzaV3/CodexPlusPlus',
     homeUrl: 'https://codexpp.cc/',
     protocol: 'openai',
-    tags: ['Codex Desktop', '自定义网关', '多模型路由'],
-    description:
-      '专为 Codex Desktop 打造的社区增强工具，支持无侵入接入第三方中转 API、多模型与 Provider 切换、会话导出与扩展工作流。',
-    setupTip: '在 Provider / API 设置中填入下方 OpenAI 兼容地址（含 /v1）与 Ravenai API Key 即可使用。',
+    summary: 'Codex Desktop 增强套件与聚合网关，支持多 Provider 路由切换。',
+    setupHint: '填 OpenAI 地址（含 /v1）+ API Key',
+    uiPreview: codexppUi,
+    uiCaption: 'Codex++ · 聚合网关与多 Provider 路由',
+    iconImg: codexppIcon,
   },
   {
     id: 'cockpit-tools',
     name: 'Cockpit Tools',
-    tagline: '通用 AI IDE 多账号与配额中控台',
     repo: 'jlcodes99/cockpit-tools',
     githubUrl: 'https://github.com/jlcodes99/cockpit-tools',
     protocol: 'both',
-    tags: ['Antigravity', 'Codex', 'Cursor / Kiro', '配额监控'],
-    description:
-      '支持 Antigravity、Codex、Cursor、Windsurf、Kiro、GitHub Copilot 与 Gemini CLI 等多工具的账号切换、配额监测、自动唤醒与多开实例管理。',
-    setupTip: '可根据目标工具选择 Ravenai OpenAI（含 /v1）或 Anthropic（不含 /v1）接入地址。',
+    summary: 'Antigravity / Codex / Cursor / Kiro 多账号与配额中控台。',
+    setupHint: '按工具协议选 /v1 或根地址',
+    uiPreview: cockpitUi,
+    uiCaption: 'Cockpit Tools · 多 IDE 账号与配额总览',
+    iconImg: cockpitIcon,
   },
   {
     id: 'cc-switch',
     name: 'CC Switch',
-    tagline: 'Claude Code / Codex 一站式图形化配置热切换助手',
     repo: 'farion1231/cc-switch',
     githubUrl: 'https://github.com/farion1231/cc-switch',
     homeUrl: 'https://ccswitch.io',
     protocol: 'both',
-    tags: ['Claude Code', 'Codex', 'OpenCode', '一键热切'],
-    description:
-      '跨平台桌面 All-in-One 配置管家，告别手改 JSON / TOML / 环境变量，支持 Claude Code、Codex、OpenCode、DeepSeek Harness 的中转站预设、本地代理与 MCP 统一管理。',
-    setupTip: 'Claude Code 填入根地址（不含 /v1），Codex / OpenCode 填入 OpenAI 地址（含 /v1）。',
+    summary: 'Claude Code / Codex / OpenCode 图形化中转配置一键热切。',
+    setupHint: 'Claude 填根地址，Codex 填 /v1',
+    uiPreview: ccswitchUi,
+    uiCaption: 'CC Switch · 中转配置一键切换',
+    iconImg: ccswitchIcon,
   },
   {
     id: 'codex-host',
     name: 'CodexHost',
-    tagline: '在 Codex Desktop 内原生运行多款 AI Agent Harness',
     repo: 'BytePioneer-AI/codex-host',
     githubUrl: 'https://github.com/BytePioneer-AI/codex-host',
     protocol: 'both',
-    tags: ['Codex Desktop', 'Claude Code', '跨 Agent 委派'],
-    description:
-      '在 Codex Desktop 界面内直接挂载并运行 Claude Code、Pi、Antigravity 等多款编码 Agent，支持跨 Agent 子任务委派与统一会话管理。',
-    setupTip: '为各个挂载的 Agent 分别配置对应协议的 Ravenai 中转地址，即可在单一工作台协同调度。',
+    summary: '在 Codex Desktop 内原生挂载 Claude Code 等多款 Agent。',
+    setupHint: '按各 Agent 协议填对应中转地址',
+    uiPreview: codexhostUi,
+    uiCaption: 'CodexHost · 多 Agent Harness 工作台',
+    iconImg: codexhostIcon,
   },
 ]
 
@@ -78,6 +88,16 @@ export default function AppRecommendations({
 }) {
   const ep = splitEndpoints(baseUrl)
   const action = useAction()
+  const [previewApp, setPreviewApp] = useState<RecommendedApp | null>(null)
+
+  useEffect(() => {
+    if (!previewApp) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPreviewApp(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [previewApp])
 
   async function openUrl(url: string) {
     await action.run(() => native('open_ecosystem_url', { url }))
@@ -85,106 +105,136 @@ export default function AppRecommendations({
 
   return (
     <div className="eco-shell">
-      <section className="card eco-endpoint-card">
-        <div className="eco-endpoint-head">
-          <div>
-            <h2>
-              <Compass size={16} />
-              推荐生态接入工具
-            </h2>
-            <p className="small muted" style={{ margin: '3px 0 0' }}>
-              精选社区高星开源客户端与配置助手，配合你的 Ravenai API 密钥即可快速接入全系列 GPT / Claude / Gemini / DeepSeek 模型。
-            </p>
-          </div>
-          <button type="button" className="primary" onClick={onOpenKeys}>
-            <KeyRound size={14} />
-            管理 API 密钥
-          </button>
+      <section className="card eco-toolbar">
+        <div className="eco-ep-inline">
+          <span className="eco-ep-tag">OpenAI</span>
+          <code className="mono">{ep.openai}</code>
+          <CopyButton text={ep.openai} label="复制 OpenAI 接入地址" />
         </div>
-
-        <div className="eco-endpoints-bar">
-          <div className="eco-ep-box">
-            <span>OpenAI / Codex 兼容地址（含 /v1）</span>
-            <div className="eco-ep-row">
-              <code className="mono">{ep.openai}</code>
-              <CopyButton text={ep.openai} label="复制 OpenAI 接入地址" />
-            </div>
-          </div>
-          <div className="eco-ep-box">
-            <span>Anthropic / Claude Code 地址（不含 /v1）</span>
-            <div className="eco-ep-row">
-              <code className="mono">{ep.anthropic}</code>
-              <CopyButton text={ep.anthropic} label="复制 Anthropic 接入地址" />
-            </div>
-          </div>
+        <div className="eco-ep-inline">
+          <span className="eco-ep-tag">Claude</span>
+          <code className="mono">{ep.anthropic}</code>
+          <CopyButton text={ep.anthropic} label="复制 Anthropic 接入地址" />
         </div>
+        <button type="button" className="primary eco-keys-btn" onClick={onOpenKeys}>
+          <KeyRound size={13} />
+          管理密钥
+        </button>
       </section>
 
       <ErrorMessage error={action.error} />
 
       <div className="eco-grid">
-        {RECOMMENDED_APPS.map((item, idx) => {
-          const IconComp = idx === 0 ? Sparkles : idx === 1 ? Wrench : idx === 2 ? Layers : Terminal
+        {RECOMMENDED_APPS.map(item => {
           const primaryEndpoint = item.protocol === 'openai' ? ep.openai : ep.anthropic
           return (
             <article key={item.id} className="card eco-card">
-              <div className="eco-card-top">
-                <div className="eco-card-icon">
-                  <IconComp size={18} />
-                </div>
-                <div className="eco-card-title">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <h3>{item.name}</h3>
-                    <span className="pill pill-mono">{item.protocol === 'both' ? 'OpenAI + Claude' : 'OpenAI / Codex'}</span>
+              <button
+                type="button"
+                className="eco-preview-btn"
+                aria-label={`查看大图：${item.name}`}
+                onClick={() => setPreviewApp(item)}
+              >
+                <img
+                  className="eco-preview-img"
+                  src={item.uiPreview}
+                  alt={item.uiCaption}
+                  loading="lazy"
+                />
+                <span className="eco-preview-badge">
+                  <Maximize2 size={10} />
+                  <span>查看大图</span>
+                </span>
+              </button>
+
+              <div className="eco-card-body">
+                <div className="eco-card-top">
+                  <div className="eco-card-icon">
+                    <img src={item.iconImg} alt="" />
                   </div>
-                  <small>{item.tagline}</small>
+                  <div className="eco-card-title">
+                    <div className="eco-card-title-row">
+                      <h3>{item.name}</h3>
+                      <span className="pill pill-mono">
+                        {item.protocol === 'both' ? 'OpenAI + Claude' : 'OpenAI'}
+                      </span>
+                    </div>
+                    <p className="eco-card-desc">{item.summary}</p>
+                  </div>
                 </div>
-              </div>
 
-              <p className="eco-card-desc">{item.description}</p>
-
-              <div className="eco-tags">
-                {item.tags.map(tag => (
-                  <span key={tag} className="pill">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-
-              <div className="eco-tip-box">
-                <strong>接入提示</strong>
-                <span>{item.setupTip}</span>
-              </div>
-
-              <div className="eco-card-foot">
-                <span className="mono small muted">{item.repo}</span>
-                <div className="eco-card-actions">
-                  <CopyButton text={primaryEndpoint} label={`复制 ${item.name} 推荐接入地址`} />
-                  {item.homeUrl && (
+                <div className="eco-card-foot">
+                  <span className="eco-hint-inline">{item.setupHint}</span>
+                  <div className="eco-card-actions">
+                    <CopyButton text={primaryEndpoint} label={`复制 ${item.name} 接入地址`} />
+                    {item.homeUrl && (
+                      <button
+                        type="button"
+                        disabled={action.busy}
+                        onClick={() => void openUrl(item.homeUrl!)}
+                      >
+                        官网
+                      </button>
+                    )}
                     <button
                       type="button"
+                      className="primary"
                       disabled={action.busy}
-                      onClick={() => void openUrl(item.homeUrl!)}
+                      onClick={() => void openUrl(item.githubUrl)}
                     >
-                      官网
-                      <ArrowUpRight size={13} />
+                      GitHub
+                      <ArrowUpRight size={12} />
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={action.busy}
-                    onClick={() => void openUrl(item.githubUrl)}
-                  >
-                    GitHub
-                    <ArrowUpRight size={13} />
-                  </button>
+                  </div>
                 </div>
               </div>
             </article>
           )
         })}
       </div>
+
+      {previewApp && (
+        <div
+          className="eco-lightbox-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${previewApp.name} 界面大图`}
+          onClick={() => setPreviewApp(null)}
+        >
+          <div className="eco-lightbox-dialog" onClick={e => e.stopPropagation()}>
+            <div className="eco-lightbox-head">
+              <div className="eco-lightbox-title">
+                <img src={previewApp.iconImg} alt="" />
+                <div>
+                  <strong>{previewApp.name}</strong>
+                  <span>{previewApp.uiCaption}</span>
+                </div>
+              </div>
+              <div className="eco-lightbox-actions">
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => void openUrl(previewApp.githubUrl)}
+                >
+                  GitHub
+                  <ArrowUpRight size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="关闭大图预览"
+                  onClick={() => setPreviewApp(null)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+            <div className="eco-lightbox-stage">
+              <img src={previewApp.uiPreview} alt={previewApp.uiCaption} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

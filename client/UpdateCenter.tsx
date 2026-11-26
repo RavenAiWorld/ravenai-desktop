@@ -50,6 +50,35 @@ function formatBytes(bytes: number): string {
   return `${bytes} B`
 }
 
+interface ParsedNoteLine {
+  kind: 'heading' | 'bullet' | 'text'
+  text: string
+}
+
+function cleanInlineMarkdown(raw: string): string {
+  return raw
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+    .trim()
+}
+
+function parseReleaseNotes(notes: string): ParsedNoteLine[] {
+  return notes
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      if (/^#{1,4}\s+/.test(line)) {
+        return { kind: 'heading' as const, text: cleanInlineMarkdown(line.replace(/^#{1,4}\s+/, '')) }
+      }
+      if (/^[-*•]\s+/.test(line)) {
+        return { kind: 'bullet' as const, text: cleanInlineMarkdown(line.replace(/^[-*•]\s+/, '')) }
+      }
+      return { kind: 'text' as const, text: cleanInlineMarkdown(line) }
+    })
+}
+
 export function UpdateBanner({
   info,
   onOpen,
@@ -229,7 +258,24 @@ export function UpdateDrawer({
       {info?.release_notes && (
         <div style={{ marginBottom: 14 }}>
           <h3 style={{ marginTop: 0, marginBottom: 8 }}>更新说明</h3>
-          <pre className="update-notes-box">{info.release_notes}</pre>
+          <div className="update-notes-box">
+            {parseReleaseNotes(info.release_notes).map((line, i) =>
+              line.kind === 'heading' ? (
+                <div key={i} className="update-note-heading">
+                  {line.text}
+                </div>
+              ) : line.kind === 'bullet' ? (
+                <div key={i} className="update-note-bullet">
+                  <span className="update-note-dot" aria-hidden="true" />
+                  <span>{line.text}</span>
+                </div>
+              ) : (
+                <p key={i} className="update-note-text">
+                  {line.text}
+                </p>
+              ),
+            )}
+          </div>
         </div>
       )}
 

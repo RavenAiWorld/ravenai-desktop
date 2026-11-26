@@ -105,10 +105,10 @@ export async function setup(page: Page, authenticated = true) {
             release_url: 'https://github.com/RavenAiWorld/ravenai-desktop/releases/tag/v1.0.0',
             download_url: 'https://github.com/RavenAiWorld/ravenai-desktop/releases/download/v1.0.0/Ravenai_1.0.0_x64-setup.exe',
             asset_name: 'Ravenai_1.0.0_x64-setup.exe',
-            file_size: 10485760,
+            file_size: 10985497,
             sha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-            release_notes: 'Ravenai Desktop v1.00 首发正式版',
-            published_at: '2026-11-26T06:00:00Z',
+            release_notes: '## Ravenai Desktop v1.00\n- 侧边栏统一品牌配色与分组层次\n- 应用推荐展示四款生态项目官方界面与大图预览',
+            published_at: '2026-11-26T08:00:00Z',
             source: 'ravenai',
           }
         }

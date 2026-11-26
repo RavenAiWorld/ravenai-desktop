@@ -1963,7 +1963,7 @@ button.sidebar-version-btn.has-update {
 
 .update-notes-box {
   margin: 0;
-  padding: 11px 13px;
+  padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -1971,10 +1971,37 @@ button.sidebar-version-btn.has-update {
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--text-2);
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 180px;
+  max-height: 190px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.update-note-heading {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.update-note-bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+
+.update-note-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--coral);
+  flex: 0 0 5px;
+  margin-top: 7px;
+}
+
+.update-note-text {
+  margin: 0;
 }
 
 .update-progress-box {
@@ -2009,105 +2036,164 @@ button.sidebar-version-btn.has-update {
   min-height: 39px;
 }
 
-/* Ecosystem App Recommendations */
+/* Ecosystem App Recommendations (Compact Zero-Scroll 2x2) */
 .eco-shell {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
-.eco-endpoint-card {
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.eco-endpoint-head {
+.eco-toolbar {
+  padding: 8px 12px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
-.eco-endpoint-head h2 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  display: inline-flex;
+.eco-ep-inline {
+  flex: 1 1 250px;
+  min-width: 0;
+  display: flex;
   align-items: center;
   gap: 7px;
-}
-
-.eco-endpoints-bar {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.eco-ep-box {
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 4px 6px 4px 9px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--surface-2);
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+}
+
+.eco-ep-tag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--coral-text);
+  background: var(--coral-soft);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.eco-ep-inline code {
+  flex: 1 1 auto;
   min-width: 0;
-}
-
-.eco-ep-box > span {
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.eco-ep-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-width: 0;
-}
-
-.eco-ep-row code {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.eco-keys-btn {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
 .eco-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .eco-card {
-  padding: 16px 18px;
+  padding: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.eco-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+button.eco-preview-btn {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 174px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface-2);
+  overflow: hidden;
+  cursor: zoom-in;
+  box-shadow: none;
+}
+
+.eco-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+button.eco-preview-btn:hover .eco-preview-img {
+  transform: scale(1.025);
+}
+
+.eco-preview-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(20, 20, 19, 0.72);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+button.eco-preview-btn:hover .eco-preview-badge {
+  background: rgba(20, 20, 19, 0.88);
+}
+
+.eco-card-body {
+  padding: 11px 13px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
 }
 
 .eco-card-top {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
 .eco-card-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--coral-soft);
-  border: 1px solid var(--coral-border);
-  color: var(--coral-text);
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
+  padding: 2px;
+  box-shadow: var(--shadow-xs);
+}
+
+.eco-card-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  display: block;
 }
 
 .eco-card-title {
@@ -2115,55 +2201,31 @@ button.sidebar-version-btn.has-update {
   flex: 1;
 }
 
-.eco-card-title h3 {
-  margin: 0;
-  font-size: 15.5px;
-  font-weight: 650;
-  color: var(--text);
+.eco-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
 }
 
-.eco-card-title small {
-  display: block;
-  margin-top: 2px;
-  font-size: 12px;
-  color: var(--muted);
+.eco-card-title h3 {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--text);
+  line-height: 1.25;
 }
 
 .eco-card-desc {
-  margin: 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--text-2);
-}
-
-.eco-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.eco-tip-box {
-  padding: 9px 11px;
-  border-radius: 9px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  margin: 3px 0 0;
   font-size: 12px;
-  line-height: 1.5;
-  color: var(--text-2);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.eco-tip-box strong {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--coral-text);
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 .eco-card-foot {
   margin-top: auto;
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
@@ -2172,16 +2234,111 @@ button.sidebar-version-btn.has-update {
   flex-wrap: wrap;
 }
 
+.eco-hint-inline {
+  font-size: 11.5px;
+  color: var(--text-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .eco-card-actions {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
+  flex-shrink: 0;
 }
 
 .eco-card-actions button {
-  min-height: 30px;
-  padding: 0 10px;
-  font-size: 12px;
+  min-height: 27px;
+  padding: 0 9px;
+  font-size: 11.5px;
+}
+
+.eco-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(15, 15, 14, 0.78);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.eco-lightbox-dialog {
+  width: min(980px, 100%);
+  max-height: 90vh;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.eco-lightbox-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.eco-lightbox-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.eco-lightbox-title img {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.eco-lightbox-title strong {
+  display: block;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.eco-lightbox-title span {
+  display: block;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.eco-lightbox-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.eco-lightbox-stage {
+  background: #111110;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  overflow: auto;
+}
+
+.eco-lightbox-stage img {
+  max-width: 100%;
+  max-height: calc(90vh - 96px);
+  border-radius: 8px;
+  object-fit: contain;
+  display: block;
 }
 
 @media (max-width: 960px) {
