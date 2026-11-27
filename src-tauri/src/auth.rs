@@ -389,6 +389,7 @@ mod tests {
             7
         );
         vault::clear(&directory).unwrap();
-        std::fs::remove_dir(directory).unwrap();
+        assert!(vault::read::<Session>(&directory).unwrap().is_none());
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }
