@@ -63,6 +63,7 @@ jobs:
       - name: Run frontend checks & unit tests
         run: |
           npm run check
+          npm --prefix studio/frontend run studio:typecheck
           npm test
 
       - name: Generate release source archive
@@ -144,6 +145,7 @@ jobs:
               "- macOS (Apple Silicon M1/M2/M3/M4): Ravenai_1.0.0_aarch64.dmg\n"
               "- macOS (Intel x64): Ravenai_1.0.0_x64.dmg\n"
               "- 核心功能：模型广场实时 TPS、渠道 6h 监测、GPT分组降智检测、模型指纹检测、API 密钥与用量分析、内置 Nova 生图平台、生态应用推荐\n"
+              "- 安全加固：更新安装强制校验 SHA256（缺失或异常直接拒绝安装）、插件 API 密钥迁移至系统加密凭据库、Nova 前端依赖零已知漏洞\n"
               "- macOS 首次打开提示：未签名安装包若提示「已损坏」，在终端执行 xattr -cr /Applications/Ravenai.app 后即可打开\n\n"
               "SHA256SUMS:\n"
               f"{sums}\n"

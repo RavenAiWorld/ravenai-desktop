@@ -137,6 +137,7 @@ export function UpdateDrawer({
 }) {
   const notice = useNotice()
   const isMac = platform === 'macos'
+  const hasValidSha256 = Boolean(info?.sha256 && /^[a-f0-9]{64}$/i.test(info.sha256.trim()))
   const [installing, setInstalling] = useState(false)
   const [installError, setInstallError] = useState('')
   const [progress, setProgress] = useState<UpdateProgress | null>(null)
@@ -160,6 +161,10 @@ export function UpdateDrawer({
 
   async function startInstall() {
     if (!info || installing) return
+    if (!hasValidSha256) {
+      setInstallError('缺少有效的 SHA256 校验值，已拒绝自动安装，请前往 GitHub 手动核验下载。')
+      return
+    }
     setInstallError('')
     setInstalling(true)
     setProgress({ phase: 'downloading', downloaded: 0, total: info.file_size || 0, percent: 0 })
@@ -253,14 +258,20 @@ export function UpdateDrawer({
           <KeyValue label="更新检查源">
             {info.source === 'ravenai' ? 'Ravenai 官网加速源' : 'GitHub Releases 直连'}
           </KeyValue>
-          {info.sha256 && (
-            <KeyValue label="SHA256 校验">
-              <code className="mono" style={{ fontSize: 11 }}>
-                {info.sha256.slice(0, 16)}...{info.sha256.slice(-8)}
-              </code>
-              <CopyButton text={info.sha256} label="复制完整 SHA256" />
-            </KeyValue>
-          )}
+          <KeyValue label="SHA256 校验">
+            {hasValidSha256 && info.sha256 ? (
+              <>
+                <code className="mono" style={{ fontSize: 11 }}>
+                  {info.sha256.slice(0, 16)}...{info.sha256.slice(-8)}
+                </code>
+                <CopyButton text={info.sha256} label="复制完整 SHA256" />
+              </>
+            ) : (
+              <span className="small" style={{ color: 'var(--red)' }}>
+                缺失（已禁用自动安装）
+              </span>
+            )}
+          </KeyValue>
         </div>
       )}
 
@@ -307,10 +318,28 @@ export function UpdateDrawer({
 
       <div className="update-actions-stack">
         {info?.has_update && (
-          <button type="button" className="primary" disabled={installing || checking} onClick={() => void startInstall()}>
-            {installing ? <LoaderCircle size={15} className="spin" /> : <Download size={15} />}
-            {installing ? '正在自动更新...' : `一键下载并更新到 ${info.display_version}`}
-          </button>
+          <>
+            <button
+              type="button"
+              className="primary"
+              disabled={installing || checking || !hasValidSha256}
+              onClick={() => void startInstall()}
+            >
+              {installing ? <LoaderCircle size={15} className="spin" /> : <Download size={15} />}
+              {installing
+                ? '正在自动更新...'
+                : !hasValidSha256
+                  ? '缺少 SHA256 校验值，已禁用自动更新'
+                  : isMac
+                    ? `一键下载并打开 ${info.display_version} DMG`
+                    : `一键下载并更新到 ${info.display_version}`}
+            </button>
+            {!hasValidSha256 && (
+              <p className="small" style={{ margin: 0, color: 'var(--red)' }}>
+                为保障安装安全，更新包必须提供官方 SHA256 校验值；缺失时仅允许前往 GitHub 手动核验下载。
+              </p>
+            )}
+          </>
         )}
 
         <div className="form-actions" style={{ marginTop: 4, justifyContent: 'space-between' }}>

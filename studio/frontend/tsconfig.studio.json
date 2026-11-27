@@ -2,5 +2,5 @@
   "extends": "./tsconfig.json",
   "compilerOptions": { "module": "ESNext", "moduleResolution": "bundler", "noEmit": true, "incremental": false },
   "include": ["src/**/*.ts", "src/**/*.tsx", "*.d.ts", "vite.config.ts"],
-  "exclude": ["node_modules", "src/**/__tests__/**", "src/app/layout.tsx", "src/test/**"]
+  "exclude": ["node_modules", "src/**/__tests__/**", "src/test/**"]
 }

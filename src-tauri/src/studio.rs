@@ -331,6 +331,93 @@ pub async fn studio_save(
     Ok(true)
 }
 
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginCredentialRecord {
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub base_url: String,
+}
+
+fn plugin_vault_filename(user_id: i64) -> Result<String, String> {
+    if user_id <= 0 {
+        return Err("无效的用户标识。".into());
+    }
+    Ok(format!("plugin-credentials-{user_id}.bin"))
+}
+
+fn validate_plugin_credentials(
+    credentials: &HashMap<String, PluginCredentialRecord>,
+) -> Result<HashMap<String, PluginCredentialRecord>, String> {
+    if credentials.len() > 64 {
+        return Err("插件凭据数量超出安全限制。".into());
+    }
+    let mut cleaned = HashMap::with_capacity(credentials.len());
+    for (id, rec) in credentials {
+        if !identifier(id) {
+            return Err("无效的插件标识。".into());
+        }
+        let api_key = rec.api_key.trim();
+        let base_url = rec.base_url.trim();
+        if api_key.len() > 4096 || base_url.len() > 1024 {
+            return Err("插件凭据内容过长。".into());
+        }
+        if api_key.is_empty() && base_url.is_empty() {
+            continue;
+        }
+        cleaned.insert(
+            id.clone(),
+            PluginCredentialRecord {
+                api_key: api_key.to_string(),
+                base_url: base_url.to_string(),
+            },
+        );
+    }
+    Ok(cleaned)
+}
+
+#[tauri::command]
+pub async fn studio_plugin_credentials_get(
+    state: State<'_, AppState>,
+    user_id: i64,
+) -> Result<HashMap<String, PluginCredentialRecord>, String> {
+    let guard = state.session.lock().await;
+    let session = guard.as_ref().ok_or("请先登录 Ravenai。")?;
+    if session.user["id"].as_i64() != Some(user_id) {
+        return Err("账户已切换，请重新打开工作台。".into());
+    }
+    let filename = plugin_vault_filename(user_id)?;
+    Ok(vault::read_named::<HashMap<String, PluginCredentialRecord>>(&state.directory, &filename)
+        .unwrap_or(None)
+        .unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn studio_plugin_credentials_set(
+    state: State<'_, AppState>,
+    user_id: i64,
+    credentials: HashMap<String, PluginCredentialRecord>,
+) -> Result<(), String> {
+    if state.verify_studio {
+        return Err("Verification permits read-only requests.".into());
+    }
+    let guard = state.session.lock().await;
+    let session = guard.as_ref().ok_or("请先登录 Ravenai。")?;
+    if session.user["id"].as_i64() != Some(user_id) {
+        return Err("账户已切换，请重新打开工作台。".into());
+    }
+    let filename = plugin_vault_filename(user_id)?;
+    let cleaned = validate_plugin_credentials(&credentials)?;
+    if cleaned.is_empty() {
+        vault::clear_named(&state.directory, &filename)
+            .map_err(|_| "无法清理加密插件凭据。".to_string())
+    } else {
+        vault::write_named(&state.directory, &filename, &cleaned)
+            .map_err(|_| "无法加密保存插件凭据。".to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -376,5 +463,40 @@ mod tests {
             "application/json\r\nx-bad: yes".into(),
         );
         assert!(validate(&input).is_err());
+    }
+
+    #[test]
+    fn plugin_credentials_validation_rejects_invalid_ids_and_oversized_values() {
+        let mut valid = HashMap::new();
+        valid.insert(
+            "video_gen-1".into(),
+            PluginCredentialRecord {
+                api_key: "  sk-test-123  ".into(),
+                base_url: " https://api.example.com/v1 ".into(),
+            },
+        );
+        let cleaned = validate_plugin_credentials(&valid).unwrap();
+        assert_eq!(cleaned["video_gen-1"].api_key, "sk-test-123");
+        assert_eq!(cleaned["video_gen-1"].base_url, "https://api.example.com/v1");
+
+        let mut bad_id = HashMap::new();
+        bad_id.insert(
+            "../evil".into(),
+            PluginCredentialRecord {
+                api_key: "sk-1".into(),
+                base_url: String::new(),
+            },
+        );
+        assert!(validate_plugin_credentials(&bad_id).is_err());
+
+        let mut huge = HashMap::new();
+        huge.insert(
+            "valid_id".into(),
+            PluginCredentialRecord {
+                api_key: "x".repeat(5000),
+                base_url: String::new(),
+            },
+        );
+        assert!(validate_plugin_credentials(&huge).is_err());
     }
 }

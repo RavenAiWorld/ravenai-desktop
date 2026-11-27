@@ -17,6 +17,8 @@ interface DesktopBridge {
   theme(): string;
   navigate(page: string): void;
   save(name: string, data: string): Promise<boolean>;
+  loadPluginCredentials?: () => Promise<Record<string, { apiKey: string; baseUrl: string }>>;
+  savePluginCredentials?: (credentials: Record<string, { apiKey: string; baseUrl: string }>) => Promise<void>;
   ready(tools: number, width: number, height: number): void;
   failed(message: string): void;
 }

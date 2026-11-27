@@ -453,6 +453,17 @@ pub async fn open_ecosystem_url(app: tauri::AppHandle, url: String) -> Result<()
         .map_err(|_| "无法在浏览器中打开该项目链接。".into())
 }
 
+pub fn require_valid_sha256(raw: Option<&str>) -> Result<String, String> {
+    let hash = raw
+        .map(|s| s.trim().to_ascii_lowercase())
+        .filter(|s| !s.is_empty())
+        .ok_or("缺少安装包 SHA256 校验值，已拒绝自动安装。请等待官方校验文件同步或前往 GitHub 手动核验下载。")?;
+    if hash.len() != 64 || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err("更新包的 SHA256 校验值格式无效，已拒绝自动安装。".into());
+    }
+    Ok(hash)
+}
+
 #[tauri::command]
 pub async fn install_update(
     app: tauri::AppHandle,
@@ -464,15 +475,7 @@ pub async fn install_update(
     }
     let download_url = validate_download_url(&input.download_url)?;
     let asset_name = sanitize_asset_name(&input.asset_name)?;
-    let expected_sha = input
-        .sha256
-        .map(|s| s.trim().to_ascii_lowercase())
-        .filter(|s| !s.is_empty());
-    if let Some(ref hash) = expected_sha {
-        if hash.len() != 64 || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
-            return Err("更新包的 SHA256 校验值格式无效。".into());
-        }
-    }
+    let expected_sha = require_valid_sha256(input.sha256.as_deref())?;
 
     let _ = app.emit(
         "update-progress",
@@ -557,11 +560,9 @@ pub async fn install_update(
     );
 
     let actual_hash = format!("{:x}", hasher.finalize());
-    if let Some(expected) = expected_sha {
-        if actual_hash != expected {
-            let _ = std::fs::remove_file(&target_path);
-            return Err("安装包 SHA256 完整性校验未通过，已中止更新并清理临时文件。".into());
-        }
+    if actual_hash != expected_sha {
+        let _ = std::fs::remove_file(&target_path);
+        return Err("安装包 SHA256 完整性校验未通过，已中止更新并清理临时文件。".into());
     }
 
     let _ = app.emit(
@@ -710,5 +711,18 @@ mod tests {
         assert_eq!(pick_github_asset(&assets, "windows_x64").unwrap().name, "Ravenai_1.0.0_x64-setup.exe");
         assert_eq!(pick_github_asset(&assets, "macos_arm64").unwrap().name, "Ravenai_1.0.0_aarch64.dmg");
         assert_eq!(pick_github_asset(&assets, "macos_x64").unwrap().name, "Ravenai_1.0.0_x64.dmg");
+    }
+
+    #[test]
+    fn require_valid_sha256_enforces_mandatory_64_hex_checksum() {
+        assert!(require_valid_sha256(None).is_err());
+        assert!(require_valid_sha256(Some("")).is_err());
+        assert!(require_valid_sha256(Some("   ")).is_err());
+        assert!(require_valid_sha256(Some("deadbeef")).is_err());
+        assert!(require_valid_sha256(Some(&"g".repeat(64))).is_err());
+        assert_eq!(
+            require_valid_sha256(Some(&format!("  {}  ", "A1B2C3D4".repeat(8)))).unwrap(),
+            "a1b2c3d4".repeat(8)
+        );
     }
 }

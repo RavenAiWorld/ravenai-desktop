@@ -155,6 +155,12 @@ test('update center shows version v1.00, update reminder, manual check, and real
   await expect(page.getByRole('dialog')).toContainText('一键下载并更新到 v1.0.1')
   await expect(page.getByRole('dialog')).not.toContainText('##')
   await page.screenshot({ path: 'qa-results/版本与更新.png' })
+  // Verify fail-closed SHA256 guard disables auto-install when checksum is absent
+  await page.evaluate(() => {
+    (window as any).qa.mockUpdate = { ...(window as any).qa.mockUpdate, sha256: null }
+  })
+  await page.getByRole('button', { name: '立即检查更新' }).click()
+  await expect(page.getByRole('button', { name: '缺少 SHA256 校验值，已禁用自动更新' })).toBeDisabled()
   await page.getByRole('button', { name: '关闭', exact: true }).click()
   await expect(page.getByRole('region', { name: '发现新版本提醒' })).toBeVisible()
   await page.getByRole('navigation', { name: '主要导航' }).getByRole('button', { name: '应用推荐', exact: true }).click()

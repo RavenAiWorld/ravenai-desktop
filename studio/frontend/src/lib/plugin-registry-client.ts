@@ -116,12 +116,94 @@ export interface PluginCredential {
 
 type CredentialMap = Record<string, PluginCredential>;
 
+interface DesktopVaultBridge {
+  loadPluginCredentials?: () => Promise<CredentialMap>;
+  savePluginCredentials?: (credentials: CredentialMap) => Promise<void>;
+}
+
 const credentialListeners = new Set<() => void>();
 /**
  * 凭据的版本号。useSyncExternalStore 需要一个「值变了」的稳定信号，
  * 而凭据本身是每次读都新建的对象，不能直接当快照用。
  */
 let credentialVersion = 0;
+
+/**
+ * 桌面端启用系统凭据加密存储（Windows DPAPI / macOS ChaCha20-Poly1305）时，
+ * 仅在内存中缓存解密后的凭据，绝不回写 WebView localStorage。
+ */
+let desktopVaultActive = false;
+let desktopCredentialCache: CredentialMap = {};
+
+function getDesktopVaultBridge(): DesktopVaultBridge | null {
+  if (typeof window === 'undefined' || window.parent === window) return null;
+  const bridge = (window.parent as unknown as { ravenStudio?: DesktopVaultBridge }).ravenStudio;
+  if (bridge && typeof bridge.loadPluginCredentials === 'function' && typeof bridge.savePluginCredentials === 'function') {
+    return bridge;
+  }
+  return null;
+}
+
+function parseCredentialJson(raw: string | null): CredentialMap {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out: CredentialMap = {};
+    for (const [id, entry] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!entry || typeof entry !== 'object') continue;
+      const rec = entry as Partial<PluginCredential>;
+      out[id] = {
+        apiKey: typeof rec.apiKey === 'string' ? rec.apiKey.trim() : '',
+        baseUrl: typeof rec.baseUrl === 'string' ? rec.baseUrl.trim() : '',
+      };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * 在 Ravenai Desktop 中启动时加载系统加密库中的插件凭据，
+ * 并将历史残留在 localStorage 的明文凭据一次性迁移至加密库后立即清除。
+ */
+export async function hydrateDesktopPluginCredentials(): Promise<void> {
+  const bridge = getDesktopVaultBridge();
+  if (!bridge?.loadPluginCredentials || !bridge.savePluginCredentials) return;
+  desktopVaultActive = true;
+  let loaded: CredentialMap = {};
+  try {
+    loaded = (await bridge.loadPluginCredentials()) || {};
+  } catch (error) {
+    console.warn('[plugin-registry] 读取系统加密插件凭据失败', error);
+  }
+
+  let migrated = false;
+  const takeLegacy = (window as unknown as { __ravenTakeLegacyPluginCredentials?: () => string | null })
+    .__ravenTakeLegacyPluginCredentials;
+  const legacyRaw = typeof takeLegacy === 'function' ? takeLegacy() : null;
+  if (legacyRaw) {
+    const legacyMap = parseCredentialJson(legacyRaw);
+    for (const [id, cred] of Object.entries(legacyMap)) {
+      if (!loaded[id] && (cred.apiKey || cred.baseUrl)) {
+        loaded[id] = cred;
+        migrated = true;
+      }
+    }
+  }
+
+  desktopCredentialCache = loaded;
+  if (migrated) {
+    try {
+      await bridge.savePluginCredentials(desktopCredentialCache);
+    } catch (error) {
+      console.error('[plugin-registry] 迁移插件凭据至系统加密库失败', error);
+    }
+  }
+  credentialVersion += 1;
+  for (const listener of credentialListeners) listener();
+}
 
 export function getCredentialVersion(): number {
   return credentialVersion;
@@ -136,11 +218,11 @@ export function subscribePluginCredentials(listener: () => void): () => void {
 
 function readCredentialMap(): CredentialMap {
   if (typeof window === 'undefined') return {};
+  if (desktopVaultActive || getDesktopVaultBridge()) {
+    return { ...desktopCredentialCache };
+  }
   try {
-    const raw = localStorage.getItem(CREDENTIALS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? (parsed as CredentialMap) : {};
+    return parseCredentialJson(localStorage.getItem(CREDENTIALS_KEY));
   } catch {
     return {};
   }
@@ -163,10 +245,21 @@ export function setPluginCredential(pluginId: string, credential: Partial<Plugin
     apiKey: credential.apiKey !== undefined ? credential.apiKey.trim() : current.apiKey,
     baseUrl: credential.baseUrl !== undefined ? credential.baseUrl.trim() : current.baseUrl,
   };
-  try {
-    localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(map));
-  } catch (error) {
-    console.error('[plugin-registry] 保存插件凭据失败', error);
+  const bridge = getDesktopVaultBridge();
+  if (desktopVaultActive || bridge) {
+    desktopVaultActive = true;
+    desktopCredentialCache = map;
+    if (bridge?.savePluginCredentials) {
+      void bridge.savePluginCredentials(map).catch(error => {
+        console.error('[plugin-registry] 加密保存插件凭据失败', error);
+      });
+    }
+  } else {
+    try {
+      localStorage.setItem(CREDENTIALS_KEY, JSON.stringify(map));
+    } catch (error) {
+      console.error('[plugin-registry] 保存插件凭据失败', error);
+    }
   }
   credentialVersion += 1;
   for (const listener of credentialListeners) listener();

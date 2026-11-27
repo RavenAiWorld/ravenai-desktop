@@ -8,13 +8,27 @@ export function installStudioRuntime() {
   const { userId, theme } = context;
   const prefix = `raven-nova-user-${userId}:`;
   const rawStorage = window.localStorage;
+  const BLOCKED_SECRET_KEYS = new Set(['nova-plugin-credentials']);
+  const visibleKeys = () => Object.keys(rawStorage)
+    .filter(key => key.startsWith(prefix) && !BLOCKED_SECRET_KEYS.has(key.slice(prefix.length)));
   const scopedStorage: Storage = {
-    get length() { return Object.keys(rawStorage).filter(key => key.startsWith(prefix)).length; },
-    key(index) { return Object.keys(rawStorage).filter(key => key.startsWith(prefix))[index]?.slice(prefix.length) ?? null; },
-    getItem(key) { return rawStorage.getItem(prefix + key); },
-    setItem(key, value) { rawStorage.setItem(prefix + key, String(value)); },
+    get length() { return visibleKeys().length; },
+    key(index) { return visibleKeys()[index]?.slice(prefix.length) ?? null; },
+    getItem(key) { return BLOCKED_SECRET_KEYS.has(key) ? null : rawStorage.getItem(prefix + key); },
+    setItem(key, value) {
+      if (BLOCKED_SECRET_KEYS.has(key)) return;
+      rawStorage.setItem(prefix + key, String(value));
+    },
     removeItem(key) { rawStorage.removeItem(prefix + key); },
     clear() { for (const key of Object.keys(rawStorage)) if (key.startsWith(prefix)) rawStorage.removeItem(key); },
+  };
+  // Expose one-time migration reader for legacy plaintext plugin keys so main.ts can
+  // move them into the OS-encrypted vault and immediately purge localStorage.
+  (window as unknown as { __ravenTakeLegacyPluginCredentials?: () => string | null }).__ravenTakeLegacyPluginCredentials = () => {
+    const legacy = rawStorage.getItem(prefix + 'nova-plugin-credentials') ?? rawStorage.getItem('nova-plugin-credentials');
+    rawStorage.removeItem(prefix + 'nova-plugin-credentials');
+    rawStorage.removeItem('nova-plugin-credentials');
+    return legacy;
   };
   Object.defineProperty(window, 'localStorage', { value: scopedStorage });
   const rawIDB = window.indexedDB;

@@ -48,6 +48,10 @@ export default function ImageStudio({ userId, active, navigate }: { userId: numb
           return saved
         } catch (error) { notice(String(error)); throw error }
       },
+      loadPluginCredentials: () =>
+        native<Record<string, { apiKey: string; baseUrl: string }>>('studio_plugin_credentials_get', { userId }),
+      savePluginCredentials: (credentials: Record<string, { apiKey: string; baseUrl: string }>) =>
+        native<void>('studio_plugin_credentials_set', { userId, credentials }),
       ready: (tools: number, width: number, height: number) => {
         setReady(true)
         void native<{ verify_studio?: boolean }>('client_state').then(async state => {

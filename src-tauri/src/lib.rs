@@ -460,6 +460,8 @@ pub fn run() {
             studio::studio_request,
             studio::studio_cancel,
             studio::studio_save,
+            studio::studio_plugin_credentials_get,
+            studio::studio_plugin_credentials_set,
             studio_ready,
             detector::detector_status,
             detector::detector_challenges,

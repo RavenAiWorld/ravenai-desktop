@@ -95,6 +95,11 @@ export async function setup(page: Page, authenticated = true) {
         if (command === 'set_window_theme') return
         if (command === 'window_control') return false
         if (command === 'open_release_page' || command === 'open_ecosystem_url') return
+        if (command === 'studio_plugin_credentials_get') return win.qa.pluginCredentials || {}
+        if (command === 'studio_plugin_credentials_set') {
+          win.qa.pluginCredentials = args.credentials || {}
+          return
+        }
         if (command === 'check_update') {
           if (win.qa.mockUpdate) return win.qa.mockUpdate
           return {

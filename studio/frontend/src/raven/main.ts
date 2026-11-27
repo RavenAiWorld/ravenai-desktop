@@ -3,6 +3,8 @@ import { installStudioRuntime } from './runtime';
 
 initializeStudio().then(async () => {
   installStudioRuntime();
+  const { hydrateDesktopPluginCredentials } = await import('@/lib/plugin-registry-client');
+  await hydrateDesktopPluginCredentials();
   const { mountStudio } = await import('./mount');
   mountStudio();
   let attempts = 0;

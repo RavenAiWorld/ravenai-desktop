@@ -118,30 +118,52 @@ fn protect(directory: &Path, bytes: &[u8], encrypt: bool) -> Result<Vec<u8>, Str
     }
 }
 
-pub fn read<T: serde::de::DeserializeOwned>(directory: &Path) -> Result<Option<T>, String> {
-    let file = directory.join("session.bin");
+fn validate_vault_file_name(name: &str) -> Result<&str, String> {
+    if name.is_empty()
+        || name.len() > 80
+        || name.contains("..")
+        || !name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-' || b == b'_')
+    {
+        return Err("Invalid vault storage name".into());
+    }
+    Ok(name)
+}
+
+pub fn read_named<T: serde::de::DeserializeOwned>(
+    directory: &Path,
+    name: &str,
+) -> Result<Option<T>, String> {
+    let safe = validate_vault_file_name(name)?;
+    let file = directory.join(safe);
     if !file.exists() {
         return Ok(None);
     }
-    let bytes = fs::read(file).map_err(|_| "Cannot read the login session")?;
+    let bytes = fs::read(file).map_err(|_| "Cannot read encrypted vault file")?;
     let plain = protect(directory, &bytes, false)?;
     serde_json::from_slice(&plain)
         .map(Some)
-        .map_err(|_| "Cannot read the login session".into())
+        .map_err(|_| "Cannot read encrypted vault file".into())
 }
 
-pub fn write<T: serde::Serialize>(directory: &Path, data: &T) -> Result<(), String> {
+pub fn write_named<T: serde::Serialize>(
+    directory: &Path,
+    name: &str,
+    data: &T,
+) -> Result<(), String> {
     use std::io::Write;
-    fs::create_dir_all(directory).map_err(|_| "Cannot create session storage")?;
+    let safe = validate_vault_file_name(name)?;
+    fs::create_dir_all(directory).map_err(|_| "Cannot create encrypted storage")?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         let _ = fs::set_permissions(directory, fs::Permissions::from_mode(0o700));
     }
-    let plain = serde_json::to_vec(data).map_err(|_| "Cannot save the login session")?;
+    let plain = serde_json::to_vec(data).map_err(|_| "Cannot save encrypted vault file")?;
     let bytes = protect(directory, &plain, true)?;
-    let temp = directory.join("session.tmp");
-    let mut file = fs::File::create(&temp).map_err(|_| "Cannot save the login session")?;
+    let temp = directory.join(format!("{safe}.tmp"));
+    let mut file = fs::File::create(&temp).map_err(|_| "Cannot save encrypted vault file")?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -149,10 +171,10 @@ pub fn write<T: serde::Serialize>(directory: &Path, data: &T) -> Result<(), Stri
     }
     file.write_all(&bytes)
         .and_then(|_| file.sync_all())
-        .map_err(|_| "Cannot save the login session")?;
+        .map_err(|_| "Cannot save encrypted vault file")?;
     drop(file);
-    let target = directory.join("session.bin");
-    fs::rename(temp, &target).map_err(|_| "Cannot save the login session")?;
+    let target = directory.join(safe);
+    fs::rename(temp, &target).map_err(|_| "Cannot save encrypted vault file")?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -161,8 +183,28 @@ pub fn write<T: serde::Serialize>(directory: &Path, data: &T) -> Result<(), Stri
     Ok(())
 }
 
+pub fn clear_named(directory: &Path, name: &str) -> Result<(), String> {
+    let safe = validate_vault_file_name(name)?;
+    for candidate in [safe.to_string(), format!("{safe}.tmp")] {
+        match fs::remove_file(directory.join(candidate)) {
+            Ok(()) => (),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
+            Err(_) => return Err("Cannot clear encrypted vault file".into()),
+        }
+    }
+    Ok(())
+}
+
+pub fn read<T: serde::de::DeserializeOwned>(directory: &Path) -> Result<Option<T>, String> {
+    read_named(directory, "session.bin").map_err(|_| "Cannot read the login session".into())
+}
+
+pub fn write<T: serde::Serialize>(directory: &Path, data: &T) -> Result<(), String> {
+    write_named(directory, "session.bin", data).map_err(|_| "Cannot save the login session".into())
+}
+
 pub fn clear(directory: &Path) -> Result<(), String> {
-    for name in ["session.bin", "session.tmp", ".vault.key", ".vault.key.tmp"] {
+    for name in ["session.bin", "session.tmp", "session.bin.tmp"] {
         match fs::remove_file(directory.join(name)) {
             Ok(()) => (),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
@@ -175,6 +217,7 @@ pub fn clear(directory: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn vault_roundtrip_contains_no_plaintext() {
@@ -188,6 +231,20 @@ mod tests {
         assert!(!encrypted.windows(plain.len()).any(|part| part == plain));
         assert_eq!(protect(&dir, &encrypted, false).unwrap(), plain);
         assert!(protect(&dir, b"invalid encrypted file", false).is_err());
+
+        let mut secrets = HashMap::new();
+        secrets.insert("demo-plugin".to_string(), "sk-plugin-secret-value-12345".to_string());
+        write_named(&dir, "plugin-credentials-7.bin", &secrets).unwrap();
+        let disk_bytes = fs::read(dir.join("plugin-credentials-7.bin")).unwrap();
+        assert!(!disk_bytes
+            .windows("sk-plugin-secret-value-12345".len())
+            .any(|part| part == b"sk-plugin-secret-value-12345"));
+        let loaded: HashMap<String, String> =
+            read_named(&dir, "plugin-credentials-7.bin").unwrap().unwrap();
+        assert_eq!(loaded, secrets);
+        assert!(write_named(&dir, "../escape.bin", &secrets).is_err());
+
+        clear_named(&dir, "plugin-credentials-7.bin").unwrap();
         let _ = clear(&dir);
         let _ = fs::remove_dir_all(&dir);
     }

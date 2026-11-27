@@ -151,3 +151,31 @@ test('generated HTML preview executes locally but cannot access parent or networ
   await expect(preview.locator('body')).toHaveAttribute('data-isolation', 'passed')
   await expect(preview.locator('body')).toHaveAttribute('data-network', 'blocked')
 })
+
+test('plugin API credentials migrate out of localStorage into OS vault and never persist to localStorage', async ({ page }) => {
+  await setup(page)
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'raven-nova-user-7:nova-plugin-credentials',
+      JSON.stringify({ 'legacy-video': { apiKey: 'sk-legacy-plaintext-secret', baseUrl: 'https://plugin.example.invalid' } }),
+    )
+  })
+  await page.goto('/')
+  await nav(page, '生图平台')
+  await expect(page.frameLocator('.studio-frame').getByText('Nova Studio', { exact: true }).first()).toBeVisible()
+
+  await expect.poll(() => page.evaluate(() => (window as any).qa.pluginCredentials)).toEqual({
+    'legacy-video': { apiKey: 'sk-legacy-plaintext-secret', baseUrl: 'https://plugin.example.invalid' },
+  })
+  const rawStorageDump = await page.evaluate(() => JSON.stringify(window.localStorage))
+  expect(rawStorageDump).not.toContain('sk-legacy-plaintext-secret')
+  expect(rawStorageDump).not.toContain('nova-plugin-credentials')
+
+  const frame = page.frames().find(f => f.url().includes('/assets/studio/'))!
+  await frame.evaluate(() => {
+    window.localStorage.setItem('nova-plugin-credentials', JSON.stringify({ hack: { apiKey: 'sk-must-be-blocked', baseUrl: '' } }))
+  })
+  const afterBlockedWrite = await page.evaluate(() => JSON.stringify(window.localStorage))
+  expect(afterBlockedWrite).not.toContain('sk-must-be-blocked')
+  expect(afterBlockedWrite).not.toContain('nova-plugin-credentials')
+})
